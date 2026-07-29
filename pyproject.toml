@@ -3,7 +3,12 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "termtosvg"
+# Distribution name only. The import package and the installed command are both
+# still `termtosvg` (see [project.scripts] and [tool.setuptools]); nothing in the
+# code looks the distribution name up at runtime. The plain `termtosvg` name on
+# PyPI belongs to the original author and serves 1.1.0, which cannot start on
+# Python 3.12+.
+name = "termtosvg-ng"
 dynamic = ["version"]
 description = "Record terminal sessions as lightweight SVG animations"
 readme = "README.md"
@@ -48,10 +53,12 @@ dev = [
 termtosvg = "termtosvg.main:main"
 
 [project.urls]
-Homepage = "https://nbedos.github.io/termtosvg/"
-Source = "https://github.com/nbedos/termtosvg"
-Changelog = "https://github.com/nbedos/termtosvg/blob/develop/CHANGELOG.md"
-Issues = "https://github.com/nbedos/termtosvg/issues"
+# These must resolve to the code this distribution actually ships, otherwise a
+# user hitting a bug is sent to a repository that has been read-only since 2020.
+Homepage = "https://gaborini.github.io/termtosvg/"
+Source = "https://github.com/gaborini/termtosvg"
+Changelog = "https://github.com/gaborini/termtosvg/blob/develop/CHANGELOG.md"
+Issues = "https://github.com/gaborini/termtosvg/issues"
 
 [tool.setuptools]
 packages = ["termtosvg", "termtosvg.tests"]

@@ -6,7 +6,7 @@ No video encoding, no player to embed, no JavaScript. The output is a single
 vector file where the text is still text.
 
 [![CI](https://github.com/gaborini/termtosvg/actions/workflows/ci.yml/badge.svg)](https://github.com/gaborini/termtosvg/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/termtosvg.svg)](https://pypi.org/project/termtosvg/)
+[![PyPI](https://img.shields.io/pypi/v/termtosvg-ng.svg)](https://pypi.org/project/termtosvg-ng/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green.svg)](LICENSE)
 
@@ -36,26 +36,39 @@ screen recording:
 
 termtosvg runs on Linux, macOS and the BSDs, and requires **Python 3.10 or later**.
 
-> [!IMPORTANT]
-> The release currently published on PyPI is **1.1.0**, which predates the removal
-> of `pkg_resources` from setuptools. On Python 3.12 and later it fails at import
-> with `ModuleNotFoundError: No module named 'pkg_resources'`, so every command —
-> including `--version` — dies immediately. Version 1.2.0 fixes this. Until it is
-> published, install from source.
-
 ```shell
 python3 -m venv .venv
 source .venv/bin/activate
-pip install git+https://github.com/gaborini/termtosvg.git@develop
+pip install termtosvg-ng
 ```
 
 Then run it as either `termtosvg` or `python3 -m termtosvg`.
 
+> [!IMPORTANT]
+> **The install name and the command name differ, on purpose.** You install
+> `termtosvg-ng` but you run `termtosvg`; the import package is `termtosvg` too.
+>
+> The plain `termtosvg` name on PyPI belongs to the original author and last
+> shipped **1.1.0** in January 2020. That release predates the removal of
+> `pkg_resources` from setuptools, so on Python 3.12 and later it fails at import
+> with `ModuleNotFoundError: No module named 'pkg_resources'` — every command,
+> `--version` included, dies immediately. `termtosvg-ng` is the same tool with
+> that fixed.
+
+<details>
+<summary><b>Installing straight from source</b></summary>
+
+```shell
+pip install git+https://github.com/gaborini/termtosvg.git@develop
+```
+
+</details>
+
 <details>
 <summary><b>OS packages maintained by the community</b></summary>
 
-These track the PyPI release, so the note above applies to them until they pick
-up 1.2.0.
+These package the original `termtosvg` distribution, so they carry 1.1.0 and the
+caveat above applies to them.
 
 | OS | Repository | Command |
 |---|---|---|

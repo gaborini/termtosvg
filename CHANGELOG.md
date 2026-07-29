@@ -5,6 +5,11 @@ Compatibility and maintenance release. The command line interface, the template
 format and the generated SVG output are unchanged: all 16 bundled templates
 render byte-identical animations to 1.1.0.
 
+* **Published on PyPI as `termtosvg-ng`.** The `termtosvg` distribution name
+  belongs to the original author and still serves 1.1.0. Install with
+  `pip install termtosvg-ng`; the import package and the installed command remain
+  `termtosvg`, and no code looks the distribution name up at runtime.
+
 * **Fix startup failure on Python 3.12 and later.** `pkg_resources` is no longer
   shipped by setuptools, and it was imported at module scope, so every command —
   `record`, `render` and even `--version` — failed with `ModuleNotFoundError`.
