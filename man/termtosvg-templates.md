@@ -1,6 +1,6 @@
 % TERMTOSVG-TEMPLATES(5)
-% Nicolas Bedos
-% July 2019
+% Gabor Lepsenyi (https://gaborl.hu); Nicolas Bedos
+% July 2026
 
 ## DESCRIPTION
 templates are SVG files in which termtosvg embeds animations. Using templates makes it possible to:

@@ -10,6 +10,8 @@ vector file where the text is still text.
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green.svg)](LICENSE)
 
+Maintained by **[Gabor Lepsenyi](https://gaborl.hu)** · [gaborl.hu](https://gaborl.hu)
+
 ![Example](./docs/examples/awesome_window_frame_powershell.svg)
 
 - 🖼️ [Gallery of examples](https://nbedos.github.io/termtosvg/pages/examples.html)
@@ -268,10 +270,16 @@ Rendering is deterministic, which makes it easy to prove a change did not alter
 output: render the casts in [`docs/examples/casts/`](docs/examples/casts) before
 and after, and compare bytes.
 
-## Credits
+Bug reports and pull requests are welcome at
+[github.com/gaborini/termtosvg](https://github.com/gaborini/termtosvg/issues).
 
-termtosvg was created by **[Nicolas Bedos](https://github.com/nbedos)**, who wrote
-the recorder, the rendering engine and the template system. This repository
-continues from that work.
+## Maintainer
+
+**[Gabor Lepsenyi](https://gaborl.hu)** — [gaborl.hu](https://gaborl.hu) ·
+[github.com/gaborini](https://github.com/gaborini)
 
 Licensed under the [BSD 3-Clause License](LICENSE).
+
+<sub>Originally created by Nicolas Bedos, who wrote the recorder, the rendering
+engine and the template system. Copyright is retained as required by the
+license.</sub>

@@ -14,7 +14,10 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
-authors = [{ name = "Nicolas Bedos", email = "nicolas.bedos@gmail.com" }]
+# PEP 621 distinguishes the two roles: `authors` wrote the code, `maintainers`
+# look after it now. PyPI renders both.
+maintainers = [{ name = "Gabor Lepsenyi" }]
+authors = [{ name = "Nicolas Bedos" }]
 keywords = ["terminal", "recorder", "svg", "animation", "asciicast", "asciinema"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -63,6 +66,7 @@ Homepage = "https://gaborini.github.io/termtosvg/"
 Source = "https://github.com/gaborini/termtosvg"
 Changelog = "https://github.com/gaborini/termtosvg/blob/develop/CHANGELOG.md"
 Issues = "https://github.com/gaborini/termtosvg/issues"
+Maintainer = "https://gaborl.hu"
 
 [tool.setuptools]
 packages = ["termtosvg", "termtosvg.tests"]

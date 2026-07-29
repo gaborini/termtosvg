@@ -1,6 +1,6 @@
 % TERMTOSVG(1)
-% Nicolas Bedos
-% July 2019
+% Gabor Lepsenyi (https://gaborl.hu); Nicolas Bedos
+% July 2026
 
 ## SYNOPSIS
 **termtosvg** [output_path] [-c COMMAND] [-D DELAY] [-g GEOMETRY] [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [--help]
@@ -11,6 +11,12 @@
 
 ### DESCRIPTION
 termtosvg makes recordings of terminal sessions in animated SVG format.
+
+The program is distributed on PyPI as **termtosvg-ng** and installs two
+interchangeable commands, **termtosvg** and **termtosvg-ng**. Both run the same
+program; the second exists so the command can match the name the package is
+installed under. It may also be invoked as `python3 -m termtosvg`. This page uses
+**termtosvg** throughout.
 
 #### COMMANDS
 The default behavior of termtosvg is to render an SVG animation of a shell

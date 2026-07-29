@@ -35,10 +35,20 @@ jobs:
           python -m build
           twine check --strict dist/*
 
+      # This step hung for over ten minutes during the first 1.3.0 attempt after
+      # taking 16 seconds for 1.2.0, so it is now bounded and hardened against
+      # the two plausible causes: apt blocking on the dpkg lock held by the
+      # runner's unattended-upgrades, and pandoc's recommended packages dragging
+      # in a large LaTeX tree. Failing fast beats hanging until the job limit.
       - name: Render manual pages
+        timeout-minutes: 6
         run: |
-          sudo apt-get update && sudo apt-get install -y pandoc
+          set -euo pipefail
+          sudo apt-get -o DPkg::Lock::Timeout=120 update
+          sudo apt-get -o DPkg::Lock::Timeout=120 install -y --no-install-recommends pandoc
+          pandoc --version | head -1
           make man
+          ls -l man/termtosvg*.man.* man_*.tar.gz
 
       - uses: actions/upload-artifact@v4
         with:
