@@ -7,6 +7,7 @@ from typing import ClassVar
 
 import termtosvg.config
 import termtosvg.main
+import termtosvg.theme
 
 SHELL_INPUT = [
     'echo $SHELL && sleep 0.1;\r\n',
@@ -58,6 +59,8 @@ class TestMain(unittest.TestCase):
         ['render', 'input_filename', 'output_path', '--template', 'plain'],
         ['render', 'input_filename', 'output_path', '-t', 'plain', '-m', '42', '-M', '100'],
         ['render', 'input_filename', 'output_path', '-t', 'plain', '-m', '42', '-s', '-M', '100'],
+        ['--theme', 'auto'],
+        ['render', 'input_filename', '--theme', 'auto'],
     ]
 
     def test_parse(self):
@@ -186,6 +189,36 @@ class TestMain(unittest.TestCase):
 
             args = ['termtosvg', 'render', cast_filename_v1, svg_filename]
             TestMain.run_main(args, [])
+
+    def test_theme_option(self):
+        templates = {'plain': b'', 'dracula': b''}
+        defaults = {'templates': templates, 'default_template': 'plain',
+                    'default_geometry': '48x95', 'default_min_dur': 2,
+                    'default_max_dur': None, 'default_cmd': 'sh',
+                    'default_loop_delay': 1000}
+
+        # 'auto' is passed through for main() to resolve against the cast header
+        _, args = termtosvg.main.parse(
+            args=['render', 'input_filename', '--theme', 'auto'], **defaults)
+        self.assertEqual(args.theme, termtosvg.theme.AUTO)
+
+        # Absent by default, so rendering is unaffected
+        _, args = termtosvg.main.parse(args=['render', 'input_filename'], **defaults)
+        self.assertIsNone(args.theme)
+
+        # Available on the implicit record-and-render form too
+        _, args = termtosvg.main.parse(args=['--theme', 'auto'], **defaults)
+        self.assertEqual(args.theme, termtosvg.theme.AUTO)
+
+    def test_theme_rejected_by_record(self):
+        # record renders nothing, so --theme must not be accepted there
+        with self.assertRaises(SystemExit):
+            termtosvg.main.parse(
+                args=['record', '--theme', 'auto'],
+                templates={'plain': b''}, default_template='plain',
+                default_geometry='48x95', default_min_dur=2, default_max_dur=None,
+                default_cmd='sh', default_loop_delay=1000,
+            )
 
     def test_prog_name(self):
         # Invoked as one of the installed commands: report that name, so the
