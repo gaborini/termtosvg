@@ -2,6 +2,11 @@ name: Pages
 
 on:
   push:
+    # The gallery is regenerated from the casts by `make html`, so a change to
+    # the renderer or to a template alters it. Rebuilding on every push to the
+    # default branch keeps the published site matching the code, rather than
+    # only matching the last tag.
+    branches: [develop]
     tags: ['*']
   workflow_dispatch:
 
