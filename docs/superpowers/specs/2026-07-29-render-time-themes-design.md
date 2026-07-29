@@ -85,6 +85,13 @@ neighbouring colour concept is too easy to mistype into the wrong one.
 Built-in names are the sixteen template names; the palette is extracted from that
 template's `user-style` at run time, so it cannot drift from the template.
 
+The argument is resolved in a fixed order, so the meaning of a given string never
+depends on the working directory: the literal `auto` first, then a built-in name,
+then a file path. This mirrors `validate_template`, which already prefers a
+built-in template name over a same-named file on disk. A file that happens to be
+called `auto` or `dracula` must therefore be given with a path separator, for
+example `./dracula`.
+
 The file format is the asciicast `theme` object — `fg`, `bg`, and `palette` as a
 colon-separated list — because `AsciiCastV2Theme` already validates exactly that
 shape, and it lets a theme object be copied straight out of a `.cast` header.
