@@ -1,0 +1,38 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+wheels/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test & coverage artifacts
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Tooling caches
+.ruff_cache/
+.mypy_cache/
+
+# Generated man pages (built by `make man`)
+man/termtosvg*.man.?
+man_*.tar.gz
+
+# Editors & OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
