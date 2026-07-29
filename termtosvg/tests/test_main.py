@@ -3,9 +3,10 @@ import shutil
 import tempfile
 import time
 import unittest
+from typing import ClassVar
 
-import termtosvg.main
 import termtosvg.config
+import termtosvg.main
 
 SHELL_INPUT = [
     'echo $SHELL && sleep 0.1;\r\n',
@@ -28,7 +29,7 @@ SHELL_INPUT = [
 
 
 class TestMain(unittest.TestCase):
-    test_cases = [
+    test_cases: ClassVar[list] = [
         [],
         ['-c', 'sh'],
         ['--screen-geometry', '82x19'],
@@ -62,7 +63,7 @@ class TestMain(unittest.TestCase):
     def test_parse(self):
         for args in self.test_cases:
             with self.subTest(case=args):
-                cmd, parsed_args = termtosvg.main.parse(
+                _cmd, _parsed_args = termtosvg.main.parse(
                     args=args,
                     templates={'plain': b''},
                     default_template='plain',
@@ -157,7 +158,7 @@ class TestMain(unittest.TestCase):
             TestMain.run_main(args, SHELL_INPUT)
 
         for template in termtosvg.config.default_templates():
-            with self.subTest(case='record and render on the fly ({} template)'.format(template)):
+            with self.subTest(case=f'record and render on the fly ({template} template)'):
                 args = ['termtosvg', '-t', template]
                 TestMain.run_main(args, SHELL_INPUT)
 
@@ -187,7 +188,7 @@ class TestMain(unittest.TestCase):
             TestMain.run_main(args, [])
 
     def test_integral_duration(self):
-        test_cases = [
+        test_cases: ClassVar[list] = [
             '100',
             '100ms',
             '100Ms',

@@ -7,10 +7,10 @@ specification of both formats are available here:
     [2] https://github.com/asciinema/asciinema/blob/develop/doc/asciicast-v2.md
 """
 import abc
-import codecs
 import json
 from collections import namedtuple
-from typing import Iterable
+from collections.abc import Iterable, Iterator
+from typing import ClassVar
 
 
 class AsciiCastError(Exception):
@@ -34,8 +34,8 @@ class AsciiCastV2Record(abc.ABC):
             return AsciiCastV2Header.from_json_line(line)
         if isinstance(json_dict, list):
             return AsciiCastV2Event.from_json_line(line)
-        truncated_line = line if len(line) < 20 else '{}...'.format(line[:20])
-        raise AsciiCastError('Unknown record type: "{}"'.format(truncated_line))
+        truncated_line = line if len(line) < 20 else f'{line[:20]}...'
+        raise AsciiCastError(f'Unknown record type: "{truncated_line}"')
 
 
 def _read_v1_records(data):
@@ -51,8 +51,7 @@ def _read_v1_records(data):
         raise AsciiCastError from exc
     missing_attributes = v1_header_attributes - set(json_dict)
     if missing_attributes:
-        raise AsciiCastError('Missing attributes in asciicast v1 file: {}'
-                             .format(missing_attributes))
+        raise AsciiCastError(f'Missing attributes in asciicast v1 file: {missing_attributes}')
 
     if json_dict['version'] != 1:
         raise AsciiCastError('This function can only decode asciicast v1 data')
@@ -60,8 +59,8 @@ def _read_v1_records(data):
     yield AsciiCastV2Header(2, json_dict['width'], json_dict['height'], None, None)
 
     if not isinstance(json_dict['stdout'], Iterable):
-        raise AsciiCastError('Invalid type for stdout attribute (expected Iterable): {}'
-                             .format(json_dict['stdout']))
+        raise AsciiCastError('Invalid type for stdout attribute (expected Iterable): '
+                             f'{json_dict["stdout"]}')
 
     time = 0
     for event in json_dict['stdout']:
@@ -71,24 +70,24 @@ def _read_v1_records(data):
             raise AsciiCastError from exc
 
         if not isinstance(time_elapsed, (int, float)) or not isinstance(event_data, str):
-            raise AsciiCastError('Invalid type for event: got object "{}" but expected '
-                                 'type Tuple[Union[int, float], str]'.format(event))
+            raise AsciiCastError(f'Invalid type for event: got object "{event}" but expected '
+                                 'type Tuple[Union[int, float], str]')
         time += time_elapsed
         yield AsciiCastV2Event(time, 'o', event_data, None)
 
 
-def read_records(filename):
+def read_records(filename: str) -> Iterator[AsciiCastV2Record]:
     """Yield asciicast v2 records from the file
 
     The records in the file may themselves be in either asciicast v1 or v2 format (although
     there must be only one record format version in the file).
     Raise AsciiCastError if a record is invalid"""
     try:
-        with open(filename, 'r') as cast_file:
+        with open(filename) as cast_file:
             for line in cast_file:
                 yield AsciiCastV2Record.from_json_line(line)
     except AsciiCastError:
-        with open(filename, 'r') as cast_file:
+        with open(filename) as cast_file:
             yield from _read_v1_records(cast_file.read())
 
 
@@ -108,16 +107,14 @@ class AsciiCastV2Theme(_AsciiCastV2Theme):
         if cls.is_color(fg):
             if cls.is_color(bg):
                 colors = palette.split(':')
-                if len(colors) >= 16 and all([cls.is_color(c) for c in colors[:16]]):
-                    self = super().__new__(cls, fg, bg, palette)
-                    return self
-                if len(colors) >= 8 and all([cls.is_color(c) for c in colors[:8]]):
+                if len(colors) >= 16 and all(cls.is_color(c) for c in colors[:16]):
+                    return super().__new__(cls, fg, bg, palette)
+                if len(colors) >= 8 and all(cls.is_color(c) for c in colors[:8]):
                     new_palette = ':'.join(colors[:8])
-                    self = super().__new__(cls, fg, bg, new_palette)
-                    return self
+                    return super().__new__(cls, fg, bg, new_palette)
                 raise AsciiCastError('Invalid palette: the first 8 or 16 colors must be valid')
-            raise AsciiCastError('Invalid background color: {}'.format(bg))
-        raise AsciiCastError('Invalid foreground color: {}'.format(fg))
+            raise AsciiCastError(f'Invalid background color: {bg}')
+        raise AsciiCastError(f'Invalid foreground color: {fg}')
 
     @staticmethod
     def is_color(color):
@@ -142,7 +139,7 @@ class AsciiCastV2Header(AsciiCastV2Record, _AsciiCastV2Header):
     height: Initial number of lines of the terminal
     theme: Color theme of the terminal
     """
-    types = {
+    types: ClassVar[dict] = {
         'version': int,
         'width': int,
         'height': int,
@@ -151,12 +148,12 @@ class AsciiCastV2Header(AsciiCastV2Record, _AsciiCastV2Header):
     }
 
     def __new__(cls, version, width, height, theme, idle_time_limit=None):
-        self = super(AsciiCastV2Header, cls).__new__(cls, version, width, height, theme, idle_time_limit)
+        self = super().__new__(cls, version, width, height, theme, idle_time_limit)
         for attr_name in cls._fields:
             attr = self.__getattribute__(attr_name)
             if not isinstance(attr, cls.types[attr_name]):
-                raise AsciiCastError('Invalid type for attribute {}: {} (expected one of {})'
-                                     .format(attr_name, type(attr), cls.types[attr_name]))
+                raise AsciiCastError(f'Invalid type for attribute {attr_name}: {type(attr)} '
+                                     f'(expected one of {cls.types[attr_name]})')
         if version != 2:
             raise AsciiCastError('Only asciicast v2 format is supported')
         return self
@@ -180,8 +177,7 @@ class AsciiCastV2Header(AsciiCastV2Record, _AsciiCastV2Header):
         if filtered_attributes['theme'] is not None:
             filtered_attributes['theme'] = AsciiCastV2Theme(**filtered_attributes['theme'])
 
-        header = cls(**filtered_attributes)
-        return header
+        return cls(**filtered_attributes)
 
 
 _AsciiCastV2Event = namedtuple('AsciiCastV2Event', ['time', 'event_type', 'event_data', 'duration'])
@@ -196,7 +192,7 @@ class AsciiCastV2Event(AsciiCastV2Record, _AsciiCastV2Event):
     event_data: Data captured during the recording
     duration: Duration of the event in seconds (non standard field)
     """
-    types = {
+    types: ClassVar[dict] = {
         'time': (int, float),
         'event_type': (str,),
         'event_data': (str,),
@@ -204,12 +200,12 @@ class AsciiCastV2Event(AsciiCastV2Record, _AsciiCastV2Event):
     }
 
     def __new__(cls, *args, **kwargs):
-        self = super(AsciiCastV2Event, cls).__new__(cls, *args, **kwargs)
+        self = super().__new__(cls, *args, **kwargs)
         for attr_name in AsciiCastV2Event._fields:
             attr = self.__getattribute__(attr_name)
             if not isinstance(attr, cls.types[attr_name]):
-                raise AsciiCastError('Invalid type for attribute {}: {} (expected one of {})'
-                                     .format(attr_name, type(attr), cls.types[attr_name]))
+                raise AsciiCastError(f'Invalid type for attribute {attr_name}: {type(attr)} '
+                                     f'(expected one of {cls.types[attr_name]})')
         return self
 
     def to_json_line(self):
@@ -223,5 +219,4 @@ class AsciiCastV2Event(AsciiCastV2Record, _AsciiCastV2Event):
         except (json.JSONDecodeError, ValueError) as exc:
             raise AsciiCastError from exc
 
-        event = cls(time, event_type, event_data, None)
-        return event
+        return cls(time, event_type, event_data, None)

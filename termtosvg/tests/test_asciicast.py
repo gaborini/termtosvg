@@ -1,7 +1,14 @@
 import unittest
+from typing import ClassVar
 
-from termtosvg.asciicast import AsciiCastV2Header, AsciiCastV2Event, AsciiCastV2Record, \
-                                AsciiCastV2Theme, AsciiCastError, _read_v1_records
+from termtosvg.asciicast import (
+    AsciiCastError,
+    AsciiCastV2Event,
+    AsciiCastV2Header,
+    AsciiCastV2Record,
+    AsciiCastV2Theme,
+    _read_v1_records,
+)
 
 
 class TestAsciicast(unittest.TestCase):
@@ -21,7 +28,7 @@ class TestAsciicast(unittest.TestCase):
                 with self.assertRaises(AsciiCastError):
                     AsciiCastV2Theme(fg, bg, colors)
 
-    cast_v2_lines = [
+    cast_v2_lines: ClassVar[list] = [
         # Header: Missing theme
         '{"version": 2, "width": 212, "height": 53}',
         # Header: 8 color theme
@@ -47,7 +54,7 @@ class TestAsciicast(unittest.TestCase):
     color_theme_16 = AsciiCastV2Theme(fg='#000000', bg='#AAAAAA', palette='#000000:#111111:'
                                       '#222222:#333333:#444444:#555555:#666666:#777777:#888888:'
                                       '#999999:#AAAAAA:#bbbbbb:#CCCCCC:#DDDDDD:#EEEEEE:#ffffff')
-    cast_v2_events = [
+    cast_v2_events: ClassVar[list] = [
         AsciiCastV2Header(2, 212, 53, None),
         AsciiCastV2Header(2, 212, 53, color_theme_8),
         AsciiCastV2Header(2, 212, 53, color_theme_16),
@@ -60,9 +67,10 @@ class TestAsciicast(unittest.TestCase):
     ]
 
     def test_from_json(self):
-        test_cases = zip(TestAsciicast.cast_v2_lines, TestAsciicast.cast_v2_events)
+        test_cases = zip(TestAsciicast.cast_v2_lines, TestAsciicast.cast_v2_events,
+                         strict=True)
         for index, (line, event) in enumerate(test_cases):
-            with self.subTest(case='line #{}'.format(index)):
+            with self.subTest(case=f'line #{index}'):
                 self.assertEqual(event, AsciiCastV2Record.from_json_line(line))
 
         failure_test_cases = [
@@ -82,12 +90,13 @@ class TestAsciicast(unittest.TestCase):
                     AsciiCastV2Record.from_json_line(line)
 
     def test_to_json(self):
-        test_cases = zip(TestAsciicast.cast_v2_lines, TestAsciicast.cast_v2_events)
+        test_cases = zip(TestAsciicast.cast_v2_lines, TestAsciicast.cast_v2_events,
+                         strict=True)
         for index, (line, event) in enumerate(test_cases):
             # extra value test case only useful for from_json
             if 'timestamp' in line:
                 continue
-            with self.subTest(case='record #{}'.format(index)):
+            with self.subTest(case=f'record #{index}'):
                 self.assertEqual(event.to_json_line(), line)
 
     cast_v1_lines = '\r\n'.join(['{',
@@ -105,7 +114,7 @@ class TestAsciicast(unittest.TestCase):
                                  '  ]',
                                  '}'])
 
-    cast_v1_events = [
+    cast_v1_events: ClassVar[list] = [
         AsciiCastV2Header(2, 212, 53, None),
         AsciiCastV2Event(0.010303, 'o', '\u001b[1;31mnico \u001b[0;34m~\u001b[0m',
                          None),
@@ -114,11 +123,15 @@ class TestAsciicast(unittest.TestCase):
     ]
 
     def test__read_v1_records(self):
-        test_cases = zip(TestAsciicast.cast_v1_lines,
-                         TestAsciicast.cast_v1_events,
-                         _read_v1_records(TestAsciicast.cast_v1_lines))
-        for index, (line, expected_event, event) in enumerate(test_cases):
-            with self.subTest(case='record #{}'.format(index)):
+        # cast_v1_lines is a single JSON string, so it must not be zipped over:
+        # doing so iterates its characters and silently truncates the pairing.
+        # strict=True now asserts that exactly as many records are decoded as
+        # are expected.
+        test_cases = zip(TestAsciicast.cast_v1_events,
+                         _read_v1_records(TestAsciicast.cast_v1_lines),
+                         strict=True)
+        for index, (expected_event, event) in enumerate(test_cases):
+            with self.subTest(case=f'record #{index}'):
                 if isinstance(event, AsciiCastV2Header):
                     self.assertEqual(event, expected_event)
                 elif isinstance(event, AsciiCastV2Event):

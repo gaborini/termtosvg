@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install ruff
+        run: python -m pip install --upgrade ruff
+      - run: ruff check --output-format=github .
+
+  test:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .[dev]
+
+      # The suite forks PTYs and drives a real shell, so it must run against an
+      # installed copy rather than the source tree.
+      - name: Run tests
+        run: |
+          coverage run -m unittest termtosvg.tests.suite -v
+          coverage report
+
+  package:
+    name: Build and validate distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+
+      - name: Check metadata
+        run: twine check --strict dist/*
+
+      # Guards the failure that motivated this pipeline: the package used to
+      # import a module that no longer ships with setuptools, so it broke on a
+      # clean install while continuing to work in any developer environment.
+      - name: Smoke test in a clean environment
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/smoke
+          /tmp/smoke/bin/pip install dist/*.whl
+
+          # Make sure the environment genuinely lacks pkg_resources, otherwise
+          # this step would pass for the same reason the bug went unnoticed:
+          # a developer machine happens to have setuptools installed.
+          /tmp/smoke/bin/pip uninstall -y setuptools || true
+          /tmp/smoke/bin/python - <<'PY'
+          import importlib.util, sys
+          if importlib.util.find_spec("pkg_resources") is not None:
+              sys.exit("pkg_resources is importable here, so this smoke test "
+                       "cannot detect a regression; fix the test environment")
+          PY
+
+          /tmp/smoke/bin/termtosvg --version
+          /tmp/smoke/bin/termtosvg render docs/examples/casts/colors.cast /tmp/smoke.svg
+          test -s /tmp/smoke.svg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/

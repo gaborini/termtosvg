@@ -8,16 +8,14 @@ from collections import namedtuple
 import pyte.screens
 from lxml import etree
 
-from termtosvg import anim
-from termtosvg import term
-
+from termtosvg import anim, term
 
 TEMPLATE = pkgutil.get_data('termtosvg', '/data/templates/gjm8.svg')
 
 
 def line(i):
     chars = []
-    for c in 'line{}'.format(i):
+    for c in f'line{i}':
         chars.append(anim.CharacterCell(c, '#123456', '#789012',
                                         False, False, False, False))
     return dict(enumerate(chars))
@@ -61,7 +59,7 @@ class TestAnim(unittest.TestCase):
             anim.CharacterCell('J', 'color1', 'color4', strikethrough=True),
         ]
 
-        for pyte_char, cell_char in zip(pyte_chars, char_cells):
+        for pyte_char, cell_char in zip(pyte_chars, char_cells, strict=True):
             with self.subTest(case=pyte_char):
                 self.assertEqual(anim.CharacterCell.from_pyte(pyte_char), cell_char)
 
@@ -165,7 +163,7 @@ class TestAnim(unittest.TestCase):
         ]
 
         key = anim.ConsecutiveWithSameAttributes(['field1', 'field2'])
-        for case, result in zip(test_cases, expected_results):
+        for case, result in zip(test_cases, expected_results, strict=True):
             with self.subTest(case=case):
                 self.assertEqual(key(case), result)
 
@@ -200,14 +198,14 @@ class TestAnim(unittest.TestCase):
 
         all_definitions = {}
         for frame in frames:
-            group, new_defs = anim._render_timed_frame(offset=0,
+            _group, new_defs = anim._render_timed_frame(offset=0,
                                                        buffer=frame.buffer,
                                                        cell_width=8,
                                                        cell_height=17,
                                                        definitions={})
             all_definitions.update(new_defs)
 
-        assert(len(all_definitions) == 4)
+        self.assertEqual(len(all_definitions), 4)
 
     def test_render_animation(self):
         frames = [
@@ -260,8 +258,8 @@ class TestAnim(unittest.TestCase):
         frame_generator = anim._render_still_frames(frames, root, 9, 17)
 
         def extract_text_content(frame):
-            svg_screen_elem = frame.find('.//{{{namespace}}}svg[@id="screen"]'
-                                         .format(namespace=anim.SVG_NS))
+            svg_screen_elem = frame.find(f'.//{{{anim.SVG_NS}}}svg[@id="screen"]'
+                                         )
             return {elem.text for elem in svg_screen_elem.findall('.//text')}
 
         expected_texts_by_frame = [
@@ -273,7 +271,7 @@ class TestAnim(unittest.TestCase):
 
         z = itertools.zip_longest(expected_texts_by_frame, frame_generator)
         for count, (texts, frame) in enumerate(z):
-            with self.subTest(case='Frame #{}'.format(count)):
+            with self.subTest(case=f'Frame #{count}'):
                 anim.validate_svg(io.BytesIO(etree.tostring(frame)))
                 self.assertEqual(texts, extract_text_content(frame))
 

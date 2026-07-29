@@ -6,10 +6,10 @@ import os
 import shlex
 import sys
 import tempfile
-import pkg_resources
 
-import termtosvg.config
 import termtosvg.anim
+import termtosvg.config
+from termtosvg import __version__
 
 logger = logging.getLogger('termtosvg')
 
@@ -26,7 +26,7 @@ RENDER_USAGE = """termtosvg render input_file [output_path] [-D DELAY]
                  [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [-h]"""
 
 
-def integral_duration_validation(duration):
+def integral_duration_validation(duration: str) -> int:
     if duration.lower().endswith('ms'):
         duration = duration[:-len('ms')]
 
@@ -47,8 +47,6 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
     milliseconds
     :param default_max_dur: Default maximal duration between frames in
     milliseconds
-    :param default_max_dur: Default maximal duration between frames in
-    milliseconds
     :param default_cmd: Default program (with argument list) recorded
     :param default_loop_delay: Duration of the pause between two consecutive
     loops of the animation in milliseconds
@@ -58,20 +56,16 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
     """
     command_parser = argparse.ArgumentParser(add_help=False)
 
-    # https://stackoverflow.com/questions/15405636/pythons-argparse-to-show-programs-version-with-prog-and-version-string-formatt
-    # https://stackoverflow.com/questions/2058802/how-can-i-get-the-version-defined-in-setup-py-setuptools-in-my-package
     command_parser.add_argument(
         '-v', '--version',
         action='version',
-        version='%(prog)s {}'.format(
-            pkg_resources.require('termtosvg')[0].version
-        )
+        version=f'%(prog)s {__version__}'
     )
 
     command_parser.add_argument(
         '-c', '--command',
-        help=(('specify the program to record with optional arguments '
-               '(default: {})').format(default_cmd)),
+        help=('specify the program to record with optional arguments '
+              f'(default: {default_cmd})'),
         default=default_cmd,
         metavar='COMMAND',
     )
@@ -87,8 +81,8 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
     template_parser.add_argument(
         '-t', '--template',
         help=('set the SVG template used for rendering the SVG animation. '
-              'TEMPLATE may either be one of the default templates ({}) '
-              'or a path to a valid template.').format(', '.join(templates)),
+              f'TEMPLATE may either be one of the default templates ({", ".join(templates)}) '
+              'or a path to a valid template.'),
         type=lambda name: termtosvg.anim.validate_template(name, templates),
         default=default_template,
         metavar='TEMPLATE'
@@ -110,12 +104,11 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
         type=integral_duration_validation,
         metavar='MIN_DURATION',
         default=default_min_dur,
-        help=('minimum duration of a frame in milliseconds (default: {}ms)'
-              .format(default_min_dur))
+        help=f'minimum duration of a frame in milliseconds (default: {default_min_dur}ms)'
     )
 
     if default_max_dur:
-        default_max_dur_label = '{}ms'.format(default_max_dur)
+        default_max_dur_label = f'{default_max_dur}ms'
     else:
         default_max_dur_label = 'No maximum value'
 
@@ -125,8 +118,7 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
         type=integral_duration_validation,
         metavar='MAX_DURATION',
         default=default_max_dur,
-        help=('maximum duration of a frame in milliseconds (default: {})'
-              .format(default_max_dur_label))
+        help=f'maximum duration of a frame in milliseconds (default: {default_max_dur_label})'
     )
 
     loop_delay_parser = argparse.ArgumentParser(add_help=False)
@@ -135,9 +127,8 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
         type=integral_duration_validation,
         metavar='DELAY',
         default=default_loop_delay,
-        help=(('duration in milliseconds of the pause between two consecutive '
-               'loops of the animation (default: {}ms)')
-              .format(default_loop_delay))
+        help=('duration in milliseconds of the pause between two consecutive '
+              f'loops of the animation (default: {default_loop_delay}ms)')
     )
 
     parser = argparse.ArgumentParser(
@@ -200,7 +191,7 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
 def record_subcommand(process_args, geometry, input_fileno, output_fileno,
                       cast_filename):
     """Save a terminal session as an asciicast recording"""
-    from termtosvg.term import get_terminal_size, TerminalMode, record
+    from termtosvg.term import TerminalMode, get_terminal_size, record
     logger.info('Recording started, enter "exit" command or Control-D to end')
     if geometry is None:
         columns, lines = get_terminal_size(output_fileno)
@@ -215,7 +206,7 @@ def record_subcommand(process_args, geometry, input_fileno, output_fileno,
         with open(cast_filename, 'w') as cast_file:
             for record_ in records:
                 print(record_.to_json_line(), file=cast_file)
-    logger.info('Recording ended, cast file is {}'.format(cast_filename))
+    logger.info('Recording ended, cast file is %s', cast_filename)
 
 
 def render_subcommand(still, template, cast_filename, output_path,
@@ -233,14 +224,13 @@ def render_subcommand(still, template, cast_filename, output_path,
                                            geometry=geometry,
                                            directory=output_path,
                                            template=template)
-        logger.info('Rendering ended, SVG frames are located at {}'
-                    .format(output_path))
+        logger.info('Rendering ended, SVG frames are located at %s', output_path)
     else:
         termtosvg.anim.render_animation(frames=frames,
                                         geometry=geometry,
                                         filename=output_path,
                                         template=template)
-        logger.info('Rendering ended, SVG animation is {}'.format(output_path))
+        logger.info('Rendering ended, SVG animation is %s', output_path)
 
 
 def record_render_subcommand(process_args, still, template, geometry,
@@ -248,7 +238,7 @@ def record_render_subcommand(process_args, still, template, geometry,
                              min_frame_duration, max_frame_duration,
                              loop_delay):
     """Record and render the animation on the fly"""
-    from termtosvg.term import get_terminal_size, TerminalMode, record, timed_frames
+    from termtosvg.term import TerminalMode, get_terminal_size, record, timed_frames
 
     logger.info('Recording started, enter "exit" command or Control-D to end')
     if geometry is None:
@@ -267,13 +257,31 @@ def record_render_subcommand(process_args, still, template, geometry,
         if still:
             termtosvg.anim.render_still_frames(frames, geometry, output_path,
                                                template)
-            end_msg = 'Rendering ended, SVG frames are located at {}'
+            end_msg = 'Rendering ended, SVG frames are located at %s'
         else:
             termtosvg.anim.render_animation(frames, geometry, output_path,
                                             template)
-            end_msg = 'Rendering ended, SVG animation is {}'
+            end_msg = 'Rendering ended, SVG animation is %s'
 
-    logger.info(end_msg.format(output_path))
+    logger.info(end_msg, output_path)
+
+
+def _resolve_output_path(output_path, still_frames):
+    """Return the output path, creating the destination directory for still
+    frames if needed"""
+    if output_path is None:
+        if still_frames:
+            return tempfile.mkdtemp(prefix='termtosvg_')
+        _, path = tempfile.mkstemp(prefix='termtosvg_', suffix='.svg')
+        return path
+
+    if still_frames:
+        try:
+            os.mkdir(output_path)
+        except FileExistsError:
+            if not os.path.isdir(output_path):
+                raise
+    return output_path
 
 
 def main(args=None, input_fileno=None, output_fileno=None):
@@ -307,40 +315,12 @@ def main(args=None, input_fileno=None, output_fileno=None):
         record_subcommand(process_args, args.screen_geometry, input_fileno,
                           output_fileno, cast_filename)
     elif command == 'render':
-        if args.output_path is None:
-            if args.still_frames:
-                output_path = tempfile.mkdtemp(prefix='termtosvg_')
-            else:
-                _, output_path = tempfile.mkstemp(prefix='termtosvg_',
-                                                  suffix='.svg')
-        else:
-            output_path = args.output_path
-            if args.still_frames:
-                try:
-                    os.mkdir(output_path)
-                except FileExistsError:
-                    if not os.path.isdir(output_path):
-                        raise
-
+        output_path = _resolve_output_path(args.output_path, args.still_frames)
         render_subcommand(args.still_frames, args.template, args.input_file,
                           output_path, args.min_frame_duration,
                           args.max_frame_duration, args.loop_delay)
     else:
-        if args.output_path is None:
-            if args.still_frames:
-                output_path = tempfile.mkdtemp(prefix='termtosvg_')
-            else:
-                _, output_path = tempfile.mkstemp(prefix='termtosvg_',
-                                                  suffix='.svg')
-        else:
-            output_path = args.output_path
-            if args.still_frames:
-                try:
-                    os.mkdir(output_path)
-                except FileExistsError:
-                    if not os.path.isdir(output_path):
-                        raise
-
+        output_path = _resolve_output_path(args.output_path, args.still_frames)
         process_args = shlex.split(args.command)
         record_render_subcommand(process_args, args.still_frames, args.template,
                                  args.screen_geometry, input_fileno,

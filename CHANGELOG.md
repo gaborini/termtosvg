@@ -1,4 +1,27 @@
 # Changelog
+## Version 1.2.0 (2026-07-29)
+
+Compatibility and maintenance release. The command line interface, the template
+format and the generated SVG output are unchanged: all 16 bundled templates
+render byte-identical animations to 1.1.0.
+
+* **Fix startup failure on Python 3.12 and later.** `pkg_resources` is no longer
+  shipped by setuptools, and it was imported at module scope, so every command —
+  `record`, `render` and even `--version` — failed with `ModuleNotFoundError`.
+  The version is now read from `termtosvg.__version__`.
+* Require Python >= 3.10; test against 3.10 through 3.14.
+* Replace deprecated APIs: `isinstance()` against `typing` aliases now uses
+  `collections.abc`, and lxml's removed-in-future `Element.getchildren()` is gone.
+* Move packaging to `pyproject.toml` (PEP 621). The `termtosvg` command is now a
+  console entry point rather than an installed script; the command name and
+  behaviour are the same.
+* Replace the Travis pipeline with GitHub Actions, and publish to PyPI through
+  trusted publishing instead of a stored token.
+* Fix two silent test defects: `test__read_v1_records` zipped over a JSON
+  *string*, truncating the comparison to its characters and passing even if no
+  records were decoded; `test_default_templates` asserted nothing at all.
+
+
 ## Version 1.1.0 (2020-01-18)
 
 * Allow invocation through runpy (issue [#111](https://github.com/nbedos/termtosvg/issues/111))
