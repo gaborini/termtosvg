@@ -21,7 +21,7 @@ import struct
 import termios
 import tty
 from collections import defaultdict, namedtuple
-from typing import Iterator
+from collections.abc import Iterator
 
 import pyte
 import pyte.screens
@@ -39,7 +39,7 @@ class TerminalMode:
     properly restored when functions like `_record` (which relies on setting
     the terminal mode to raw and changing the geometry of the screen) fail.
     """
-    def __init__(self, fileno):
+    def __init__(self, fileno: int):
         self.fileno = fileno
         self.mode = None
         self.ttysize = None
@@ -105,8 +105,7 @@ def _record(process_args, columns, lines, input_fileno, output_fileno):
     except tty.error:
         pass
 
-    for data, time in _capture_output(input_fileno, output_fileno, master_fd):
-        yield data, time
+    yield from _capture_output(input_fileno, output_fileno, master_fd)
 
     os.close(master_fd)
 
@@ -188,10 +187,9 @@ def _group_by_time(event_records, min_rec_duration, max_rec_duration, last_rec_d
 
         time_between_events = event_record.time - (current_time + dropped_time)
         if time_between_events * 1000 >= min_rec_duration:
-            if max_rec_duration:
-                if max_rec_duration < time_between_events:
-                    dropped_time += time_between_events - max_rec_duration
-                    time_between_events = max_rec_duration
+            if max_rec_duration and max_rec_duration < time_between_events:
+                dropped_time += time_between_events - max_rec_duration
+                time_between_events = max_rec_duration
             accumulator_event = AsciiCastV2Event(time=current_time,
                                                  event_type='o',
                                                  event_data=current_string,
@@ -209,7 +207,8 @@ def _group_by_time(event_records, min_rec_duration, max_rec_duration, last_rec_d
     yield accumulator_event
 
 
-def record(process_args, columns, lines, input_fileno, output_fileno):
+def record(process_args, columns: int, lines: int, input_fileno: int,
+           output_fileno: int) -> Iterator[AsciiCastV2Header | AsciiCastV2Event]:
     """Record a process in asciicast v2 format
 
     The records returned by this method are:
@@ -247,7 +246,8 @@ def record(process_args, columns, lines, input_fileno, output_fileno):
                                duration=None)
 
 
-def timed_frames(records, min_frame_dur=1, max_frame_dur=None, last_frame_dur=1000):
+def timed_frames(records, min_frame_dur: int = 1, max_frame_dur: int | None = None,
+                 last_frame_dur: int = 1000) -> tuple[tuple[int, int], Iterator[TimedFrame]]:
     """Return a tuple made of the geometry of the screen and a generator of
     instances of TimedFrame computed from asciicast records
 
@@ -260,7 +260,6 @@ def timed_frames(records, min_frame_dur=1, max_frame_dur=None, last_frame_dur=10
     `last_frame_dur`
 
     :param records: Terminal session record in Asciicast v2 format
-    :param min_frame_dur: Minimum frame duration in milliseconds (integer)
     :param min_frame_dur: Minimum frame duration in milliseconds (integer)
     :param max_frame_dur: Maximum frame duration in milliseconds (None or
     integer)
@@ -318,7 +317,7 @@ def _screen_buffer(screen):
     return buffer
 
 
-def get_terminal_size(fileno):
+def get_terminal_size(fileno: int) -> tuple[int, int]:
     try:
         columns, lines = os.get_terminal_size(fileno)
     except OSError:

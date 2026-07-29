@@ -15,7 +15,7 @@ from wcwidth import wcswidth
 # can be styled with themes) from FG_BG_256[16] (which is also black #000000
 # but should be displayed as is).
 _COLORS = ['black', 'red', 'green', 'brown', 'blue', 'magenta', 'cyan', 'white']
-_BRIGHTCOLORS = ['bright{}'.format(color) for color in _COLORS]
+_BRIGHTCOLORS = [f'bright{color}' for color in _COLORS]
 NAMED_COLORS = _COLORS + _BRIGHTCOLORS
 pyte.graphics.FG_BG_256 = NAMED_COLORS + pyte.graphics.FG_BG_256[16:]
 
@@ -52,6 +52,11 @@ NAMESPACES = {
     'xlink': XLINK_NS,
 }
 
+# XPath expressions reused across rendering and template validation
+_SCREEN_XPATH = f'.//{{{SVG_NS}}}svg[@id="screen"]'
+_SETTINGS_XPATH = f'.//{{{SVG_NS}}}defs/{{{TERMTOSVG_NS}}}template_settings'
+_STYLE_XPATH = f'.//{{{SVG_NS}}}defs/{{{SVG_NS}}}style[@id="generated-style"]'
+
 
 class TemplateError(Exception):
     pass
@@ -81,29 +86,29 @@ class CharacterCell(_CharacterCell):
             text_color = 'foreground'
         else:
             if char.bold and not str(char.fg).startswith('bright'):
-                named_color = 'bright{}'.format(char.fg)
+                named_color = f'bright{char.fg}'
             else:
                 named_color = char.fg
 
             if named_color in NAMED_COLORS:
-                text_color = 'color{}'.format(NAMED_COLORS.index(named_color))
+                text_color = f'color{NAMED_COLORS.index(named_color)}'
             elif len(char.fg) == 6:
                 # HEXADECIMAL COLORS
                 # raise ValueError if char.fg is not an hexadecimal number
                 int(char.fg, 16)
-                text_color = '#{}'.format(char.fg)
+                text_color = f'#{char.fg}'
             else:
-                raise ValueError('Invalid foreground color: {}'.format(char.fg))
+                raise ValueError(f'Invalid foreground color: {char.fg}')
 
         if char.bg == 'default':
             background_color = 'background'
         elif char.bg in NAMED_COLORS:
-            background_color = 'color{}'.format(NAMED_COLORS.index(char.bg))
+            background_color = f'color{NAMED_COLORS.index(char.bg)}'
         elif len(char.bg) == 6:
             # Hexadecimal colors
             # raise ValueError if char.bg is not an hexadecimal number
             int(char.bg, 16)
-            background_color = '#{}'.format(char.bg)
+            background_color = f'#{char.bg}'
         else:
             raise ValueError('Invalid background color')
 
@@ -135,7 +140,7 @@ class ConsecutiveWithSameAttributes:
 
 
 def render_animation(frames, geometry, filename, template,
-                     cell_width=CELL_WIDTH, cell_height=CELL_HEIGHT):
+                     cell_width: int = CELL_WIDTH, cell_height: int = CELL_HEIGHT) -> None:
     root = _render_preparation(geometry, template, cell_width, cell_height)
     _, screen_height = geometry
     root = _render_animation(screen_height, frames, root, cell_width, cell_height)
@@ -145,25 +150,30 @@ def render_animation(frames, geometry, filename, template,
 
 
 def render_still_frames(frames, geometry, directory, template,
-                        cell_width=CELL_WIDTH, cell_height=CELL_HEIGHT):
+                        cell_width: int = CELL_WIDTH, cell_height: int = CELL_HEIGHT) -> None:
     root = _render_preparation(geometry, template, cell_width, cell_height)
 
     frame_generator = _render_still_frames(frames, root, cell_width, cell_height)
     for frame_count, frame_root in enumerate(frame_generator):
-        filename = os.path.join(directory, 'termtosvg_{:05}.svg'.format(frame_count))
+        filename = os.path.join(directory, f'termtosvg_{frame_count:05}.svg')
         with open(filename, 'wb') as output_file:
             output_file.write(etree.tostring(frame_root))
+
+
+def _find_screen(root):
+    """Return the <svg id="screen"> element or raise ValueError"""
+    svg_screen_tag = root.find(_SCREEN_XPATH)
+    if svg_screen_tag is None:
+        raise ValueError('Missing tag: <svg id="screen" ...>...</svg>')
+    return svg_screen_tag
 
 
 def _render_preparation(geometry, template, cell_width, cell_height):
     # Read header record and add the corresponding information to the SVG
     root = resize_template(template, geometry, cell_width, cell_height)
-    svg_screen_tag = root.find('.//{{{namespace}}}svg[@id="screen"]'
-                               .format(namespace=SVG_NS))
-    if svg_screen_tag is None:
-        raise ValueError('Missing tag: <svg id="screen" ...>...</svg>')
+    svg_screen_tag = _find_screen(root)
 
-    for child in svg_screen_tag.getchildren():
+    for child in list(svg_screen_tag):
         svg_screen_tag.remove(child)
     svg_screen_tag.append(BG_RECT_TAG)
 
@@ -180,10 +190,7 @@ def _render_still_frames(frames, root, cell_width, cell_height):
             definitions={}
         )
         frame_root = copy.deepcopy(root)
-        svg_screen_tag = frame_root.find('.//{{{namespace}}}svg[@id="screen"]'
-                                         .format(namespace=SVG_NS))
-        if svg_screen_tag is None:
-            raise ValueError('Missing tag: <svg id="screen" ...>...</svg>')
+        svg_screen_tag = _find_screen(frame_root)
         tree_defs = etree.SubElement(svg_screen_tag, 'defs')
         for definition in frame_definitions.values():
             tree_defs.append(definition)
@@ -194,10 +201,7 @@ def _render_still_frames(frames, root, cell_width, cell_height):
 
 
 def _render_animation(screen_height, frames, root, cell_width, cell_height):
-    svg_screen_tag = root.find('.//{{{namespace}}}svg[@id="screen"]'
-                               .format(namespace=SVG_NS))
-    if svg_screen_tag is None:
-        raise ValueError('Missing tag: <svg id="screen" ...>...</svg>')
+    svg_screen_tag = _find_screen(root)
 
     screen_view = etree.Element('g', attrib={'id': 'screen_view'})
 
@@ -238,19 +242,18 @@ def _add_animation(root, timings, animation_duration):
         'waapi': _embed_waapi,
     }
 
-    settings = root.find('.//{{{}}}defs/{{{}}}template_settings'
-                         .format(SVG_NS, TERMTOSVG_NS))
+    settings = root.find(_SETTINGS_XPATH)
     if settings is None:
         raise TemplateError('Missing "template_settings" element in definitions')
 
-    animation = settings.find('{{{}}}animation[@type]'.format(TERMTOSVG_NS))
+    animation = settings.find(f'{{{TERMTOSVG_NS}}}animation[@type]')
     if animation is None:
         raise TemplateError('Missing or invalid "animation" element in "template_settings"')
 
     f = animators.get(animation.attrib['type'].lower())
     if f is None:
-        raise TemplateError("Attribute 'type' of element 'animation' must be one of {}"
-                            .format(', '.join(animators.keys())))
+        raise TemplateError("Attribute 'type' of element 'animation' must be one of "
+                            f"{', '.join(animators.keys())}")
 
     f(root, timings, animation_duration)
 
@@ -301,14 +304,14 @@ def _render_line(offset, row_number, row, cell_height, cell_width, definitions):
         group_id = definitions[text_group_tag_str].attrib['id']
         new_definitions = {}
     else:
-        group_id = 'g{}'.format(len(definitions) + 1)
+        group_id = f'g{len(definitions) + 1}'
         assert group_id not in definitions.values()
         text_group_tag.attrib['id'] = group_id
         new_definitions = {text_group_tag_str: text_group_tag}
 
     # Add a reference to the definition of text_group_tag with a 'use' tag
     use_attributes = {
-        '{{{}}}href'.format(XLINK_NS): '#{}'.format(group_id),
+        f'{{{XLINK_NS}}}href': f'#{group_id}',
         'y': str(offset + row_number * cell_height),
     }
     tags.append(etree.Element('use', use_attributes))
@@ -328,8 +331,7 @@ def _make_rect_tag(column, length, height, cell_width, cell_height, background_c
         attributes['fill'] = background_color
     else:
         attributes['class'] = background_color
-    rect_tag = etree.Element('rect', attributes)
-    return rect_tag
+    return etree.Element('rect', attributes)
 
 
 def _render_line_bg_colors(screen_line, height, cell_height, cell_width):
@@ -350,7 +352,7 @@ def _render_line_bg_colors(screen_line, height, cell_height, cell_width):
                             if cell.background_color != 'background']
 
     key = ConsecutiveWithSameAttributes(['background_color'])
-    rect_tags = [
+    return [
         _make_rect_tag(
             column,
             wcswidth(''.join(t[1].text for t in group)),
@@ -359,8 +361,6 @@ def _render_line_bg_colors(screen_line, height, cell_height, cell_width):
             cell_height,
             attributes['background_color']
         ) for (column, attributes), group in groupby(non_default_bg_cells, key)]
-
-    return rect_tags
 
 
 def _make_text_tag(column, attributes, text, cell_width):
@@ -404,10 +404,8 @@ def _render_characters(screen_line, cell_width):
     """
     line = sorted(screen_line.items())
     key = ConsecutiveWithSameAttributes(['color', 'bold', 'italics', 'underscore', 'strikethrough'])
-    text_tags = [_make_text_tag(column, attributes, ''.join(c.text for _, c in group), cell_width)
-                 for (column, attributes), group in groupby(line, key)]
-
-    return text_tags
+    return [_make_text_tag(column, attributes, ''.join(c.text for _, c in group), cell_width)
+            for (column, attributes), group in groupby(line, key)]
 
 
 def resize_template(template, geometry, cell_width, cell_height):
@@ -416,10 +414,10 @@ def resize_template(template, geometry, cell_width, cell_height):
         """Resize viewbox based on the number of rows and columns of the terminal"""
         try:
             viewbox = element.attrib['viewBox'].replace(',', ' ').split()
-        except KeyError:
-            raise TemplateError('Missing "viewBox" for element "{}"'.format(element))
+        except KeyError as exc:
+            raise TemplateError(f'Missing "viewBox" for element "{element}"') from exc
 
-        vb_min_x, vb_min_y, vb_width, vb_height = [int(n) for n in viewbox]
+        vb_min_x, vb_min_y, vb_width, vb_height = (int(n) for n in viewbox)
         vb_width += cell_width * (columns - template_columns)
         vb_height += cell_height * (rows - template_rows)
         element.attrib['viewBox'] = ' '.join(map(str, (vb_min_x, vb_min_y, vb_width, vb_height)))
@@ -433,9 +431,9 @@ def resize_template(template, geometry, cell_width, cell_height):
             if attribute in element.attrib:
                 try:
                     element.attrib[attribute] = str(int(element.attrib[attribute]) + delta)
-                except ValueError:
-                    raise TemplateError('"{}" attribute of {} must be in user units'
-                                        .format(attribute, element))
+                except ValueError as exc:
+                    raise TemplateError(f'"{attribute}" attribute of {element} must be in '
+                                        'user units') from exc
         return element
 
     try:
@@ -446,13 +444,11 @@ def resize_template(template, geometry, cell_width, cell_height):
 
     # Extract the screen geometry which is saved in a private data portion of
     # the template
-    settings = root.find('.//{{{}}}defs/{{{}}}template_settings'
-                         .format(SVG_NS, TERMTOSVG_NS))
+    settings = root.find(_SETTINGS_XPATH)
     if settings is None:
         raise TemplateError('Missing "template_settings" element in definitions')
 
-    svg_geometry = settings.find('{{{}}}screen_geometry[@columns][@rows]'
-                                 .format(TERMTOSVG_NS))
+    svg_geometry = settings.find(f'{{{TERMTOSVG_NS}}}screen_geometry[@columns][@rows]')
     if svg_geometry is None:
         raise TemplateError('Missing "screen_geometry" element in "template_settings"')
 
@@ -479,8 +475,7 @@ def resize_template(template, geometry, cell_width, cell_height):
     scale(root, template_columns, template_rows, columns, rows)
 
     # Also scale the viewBox of the svg element with id 'screen'
-    screen = root.find('.//{{{namespace}}}svg[@id="screen"]'
-                       .format(namespace=SVG_NS))
+    screen = root.find(_SCREEN_XPATH)
     if screen is None:
         raise TemplateError('svg element with id "screen" not found')
     scale(screen, template_columns, template_rows, columns, rows)
@@ -499,16 +494,21 @@ def validate_template(name, templates):
         raise TemplateError('Invalid template') from exc
 
 
-def _embed_css(root, timings=None, animation_duration=None):
+def _find_generated_style(root):
+    """Return the <style id="generated-style"> element or raise TemplateError"""
     try:
-        style = root.find('.//{{{ns}}}defs/{{{ns}}}style[@id="generated-style"]'
-                          .format(ns=SVG_NS))
+        style = root.find(_STYLE_XPATH)
     except etree.Error as exc:
         raise TemplateError('Invalid template') from exc
 
     if style is None:
         raise TemplateError('Missing <style id="generated-style" ...> element '
                             'in "defs"')
+    return style
+
+
+def _embed_css(root, timings=None, animation_duration=None):
+    style = _find_generated_style(root)
 
     css_body = """#screen {
                 font-family: 'DejaVu Sans Mono', monospace;
@@ -530,41 +530,32 @@ def _embed_css(root, timings=None, animation_duration=None):
 
         transforms = []
         last_offset = None
-        transform_format = "{time:.3f}%{{transform:translateY({offset}px)}}"
         for time, offset in sorted(timings.items()):
-            transforms.append(
-                transform_format.format(
-                    time=100.0 * time/animation_duration,
-                    offset=offset
-                )
-            )
+            percent = 100.0 * time / animation_duration
+            transforms.append(f"{percent:.3f}%{{transform:translateY({offset}px)}}")
             last_offset = offset
 
         if last_offset is not None:
-            transforms.append(
-                transform_format.format(time=100, offset=last_offset)
-            )
+            transforms.append(f"{100:.3f}%{{transform:translateY({last_offset}px)}}")
 
-        css_animation = """
+        transforms_block = os.linesep.join(transforms)
+        css_animation = f"""
             :root {{
-                --animation-duration: {duration}ms;
+                --animation-duration: {animation_duration}ms;
             }}
 
             @keyframes roll {{
-                {transforms}
+                {transforms_block}
             }}
 
             #screen_view {{
-                animation-duration: {duration}ms;
+                animation-duration: {animation_duration}ms;
                 animation-iteration-count:infinite;
                 animation-name:roll;
                 animation-timing-function: steps(1,end);
                 animation-fill-mode: forwards;
             }}
-        """.format(
-            duration=animation_duration,
-            transforms=os.linesep.join(transforms)
-        )
+        """
 
         style.text = etree.CDATA(css_body + css_animation)
 
@@ -572,15 +563,7 @@ def _embed_css(root, timings=None, animation_duration=None):
 
 
 def _embed_waapi(root, timings=None, animation_duration=None):
-    try:
-        style = root.find('.//{{{ns}}}defs/{{{ns}}}style[@id="generated-style"]'
-                          .format(ns=SVG_NS))
-    except etree.Error as exc:
-        raise TemplateError('Invalid template') from exc
-
-    if style is None:
-        raise TemplateError('Missing <style id="generated-style" ...> element '
-                            'in "defs"')
+    style = _find_generated_style(root)
 
     css_body = """
         #screen {
@@ -601,58 +584,53 @@ def _embed_waapi(root, timings=None, animation_duration=None):
         if animation_duration == 0:
             raise ValueError('Animation duration must be greater than 0')
 
-        css_body += """
+        css_body += f"""
         :root {{
-            --animation-duration: {duration}ms;
+            --animation-duration: {animation_duration}ms;
         }}
 
-        """.format(duration=animation_duration)
+        """
 
-        script_element = root.find('.//{{{ns}}}script[@id="generated-js"]'
-                                   .format(ns=SVG_NS))
+        script_element = root.find(f'.//{{{SVG_NS}}}script[@id="generated-js"]')
         if script_element is None:
             raise TemplateError(
                 'Missing <script id="generated-js" ...> element')
-
-
-        transform_no_offset = "{{transform: 'translate3D(0, {y_pos}px, 0)', easing: 'steps(1, end)'}}"
-        transform_with_offset = "{{transform: 'translate3D(0, {y_pos}px, 0)', easing: 'steps(1, end)', offset: {offset:.3f}}}"
 
         transforms = []
         last_pos = None
         for time, y_pos in sorted(timings.items()):
             if last_pos is None:
-                transforms.append(transform_no_offset.format(y_pos=y_pos))
-            else:
                 transforms.append(
-                    transform_with_offset
-                    .format(offset=time / animation_duration, y_pos=y_pos)
-                )
+                    f"{{transform: 'translate3D(0, {y_pos}px, 0)', easing: 'steps(1, end)'}}")
+            else:
+                offset = time / animation_duration
+                transforms.append(
+                    f"{{transform: 'translate3D(0, {y_pos}px, 0)', "
+                    f"easing: 'steps(1, end)', offset: {offset:.3f}}}")
             last_pos = y_pos
 
         if last_pos is not None:
-            transforms.append(transform_no_offset.format(y_pos=last_pos))
+            transforms.append(
+                f"{{transform: 'translate3D(0, {last_pos}px, 0)', easing: 'steps(1, end)'}}")
 
-        js_animation = """
+        transforms_block = f',{os.linesep}'.join(transforms)
+        js_animation = f"""
         var termtosvg_vars = {{
             transforms: [
-                {transforms}
+                {transforms_block}
             ],
             timings: {{
-                duration: {duration},
+                duration: {animation_duration},
                 iterations: Infinity
             }}
-        }};""".format(
-            transforms=',{}'.format(os.linesep).join(transforms),
-            duration=animation_duration
-        )
+        }};"""
 
         script_element.text = etree.CDATA(js_animation)
 
     return root
 
 
-def validate_svg(svg_file):
+def validate_svg(svg_file) -> None:
     """Validate an SVG file against SVG 1.1 Document Type Definition"""
     package = __name__.split('.')[0]
     dtd_bytes = pkgutil.get_data(package, '/data/svg11-flat-20110816.dtd')
@@ -671,4 +649,4 @@ def validate_svg(svg_file):
 
     if not is_valid:
         reason = dtd.error_log.filter_from_errors()[0]
-        raise ValueError('Invalid SVG file: {}'.format(reason))
+        raise ValueError(f'Invalid SVG file: {reason}')

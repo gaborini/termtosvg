@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "termtosvg"
+dynamic = ["version"]
+description = "Record terminal sessions as lightweight SVG animations"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [{ name = "Nicolas Bedos", email = "nicolas.bedos@gmail.com" }]
+keywords = ["terminal", "recorder", "svg", "animation", "asciicast", "asciinema"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: BSD",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: System :: Shells",
+    "Topic :: Terminals",
+]
+dependencies = [
+    "lxml",
+    "pyte",
+    "wcwidth",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "coverage",
+    "ruff",
+    "twine",
+]
+
+[project.scripts]
+termtosvg = "termtosvg.main:main"
+
+[project.urls]
+Homepage = "https://nbedos.github.io/termtosvg/"
+Source = "https://github.com/nbedos/termtosvg"
+Changelog = "https://github.com/nbedos/termtosvg/blob/develop/CHANGELOG.md"
+Issues = "https://github.com/nbedos/termtosvg/issues"
+
+[tool.setuptools]
+packages = ["termtosvg", "termtosvg.tests"]
+
+[tool.setuptools.dynamic]
+version = { attr = "termtosvg.__version__" }
+
+[tool.setuptools.package-data]
+termtosvg = ["data/*.dtd", "data/templates/*.svg"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "F",   # pyflakes
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "RUF", # ruff-specific
+]
+ignore = [
+    # The SVG/terminal code paths legitimately shadow builtins such as `buffer`
+    # and `format`; renaming them would churn the public helper signatures.
+    "A002",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests embed long expected-SVG literals that must not be reflowed.
+"termtosvg/tests/*" = ["E501"]
+
+[tool.coverage.run]
+branch = true
+source = ["termtosvg"]
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

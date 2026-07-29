@@ -81,12 +81,12 @@ class TestTerm(unittest.TestCase):
             os.close(fd)
 
     def test__buffer_simple_events(self):
-        escape_sequences = ['{}\r\n'.format(i) for i in range(5)]
+        escape_sequences = [f'{i}\r\n' for i in range(5)]
 
         screen = pyte.Screen(80, 24)
         stream = pyte.Stream(screen)
         for count, escape_sequence in enumerate(escape_sequences):
-            with self.subTest(case='Simple events (record #{})'.format(count)):
+            with self.subTest(case=f'Simple events (record #{count})'):
                 stream.feed(escape_sequence)
                 buffer = term._screen_buffer(screen)
                 expected_buffer = {}
@@ -121,7 +121,7 @@ class TestTerm(unittest.TestCase):
         ]
         z = itertools.zip_longest(expected_cursors, escape_sequences)
         for count, ((cursor_pos, cursor_visible), escape_sequence) in enumerate(z):
-            with self.subTest(case='Hidden cursor - item #{}'.format(count)):
+            with self.subTest(case=f'Hidden cursor - item #{count}'):
                 stream.feed(escape_sequence)
                 buffer = term._screen_buffer(screen)
                 column, line = cursor_pos
@@ -137,7 +137,7 @@ class TestTerm(unittest.TestCase):
         records = [AsciiCastV2Header(version=2, width=80, height=24, theme=THEME)] + \
                   [AsciiCastV2Event(time=i,
                                     event_type='o',
-                                    event_data='{}\r\n'.format(i),
+                                    event_data=f'{i}\r\n',
                                     duration=None)
                    for i in range(0, 2)]
         geometry, frames = term.timed_frames(records, 1, None, 42)
