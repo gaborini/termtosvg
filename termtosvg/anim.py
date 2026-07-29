@@ -21,6 +21,22 @@ _BRIGHTCOLORS = [f'bright{color}' for color in _COLORS]
 NAMED_COLORS = _COLORS + _BRIGHTCOLORS
 pyte.graphics.FG_BG_256 = NAMED_COLORS + pyte.graphics.FG_BG_256[16:]
 
+# pyte names the bright colours a second time in its AIXTERM tables, which cover
+# SGR 90-97 and 100-107, and 0.8.2 has a typo in one entry: BG_AIXTERM[105] reads
+# 'bfightmagenta'. CharacterCell.from_pyte raises ValueError on any name it does
+# not recognise, so a recording that merely used a bright magenta background
+# crashed the renderer. Rebuilding both tables from NAMED_COLORS keeps termtosvg
+# the single authority on these names, which is the stance the FG_BG_256 line
+# above already takes.
+#
+# Updated in place rather than reassigned: pyte reads these tables from its own
+# module, and rebinding the attribute would not reach a name it had already
+# imported.
+pyte.graphics.FG_AIXTERM.update(
+    {90 + index: colour for index, colour in enumerate(_BRIGHTCOLORS)})
+pyte.graphics.BG_AIXTERM.update(
+    {100 + index: colour for index, colour in enumerate(_BRIGHTCOLORS)})
+
 # Id for the very last SVG animation. This is used to make the first animations
 # start when the last one ends (animation looping)
 LAST_ANIMATION_ID = 'anim_last'

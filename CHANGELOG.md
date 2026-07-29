@@ -1,4 +1,15 @@
 # Changelog
+## Version 1.4.1 (2026-07-29)
+
+* **Fix a crash on recordings with a bright background colour.** pyte 0.8.2
+  ships `BG_AIXTERM[105] = 'bfightmagenta'`, a typo for `'brightmagenta'`.
+  Rendering raised `ValueError: Invalid background color` as soon as a character
+  cell was actually painted with a bright magenta background — SGR 105 — which no
+  user could work around. termtosvg now rebuilds both AIXTERM tables from its own
+  colour names, the same stance it already takes for `FG_BG_256`. Present in every
+  release before this one.
+
+
 ## Version 1.4.0 (2026-07-29)
 
 * **Add `--theme` to choose colours independently of the template.** Previously
