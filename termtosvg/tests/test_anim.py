@@ -1,5 +1,6 @@
 import io
 import itertools
+import os
 import pkgutil
 import tempfile
 import unittest
@@ -8,7 +9,7 @@ from collections import namedtuple
 import pyte.screens
 from lxml import etree
 
-from termtosvg import anim, term
+from termtosvg import anim, config, term, theme
 
 TEMPLATE = pkgutil.get_data('termtosvg', '/data/templates/gjm8.svg')
 
@@ -225,6 +226,94 @@ class TestAnim(unittest.TestCase):
         anim.render_animation(frames, (80, 24), filename, TEMPLATE)
         with open(filename) as f:
             anim.validate_svg(f)
+
+    def test_render_animation_with_palette(self):
+        templates = config.default_templates()
+        frames = [term.TimedFrame(0, 1000, {0: {0: anim.CharacterCell('a')}})]
+        palette = {'foreground': '#abcdef', 'color1': '#123456'}
+
+        _, filename = tempfile.mkstemp(prefix='termtosvg_', suffix='.svg')
+        anim.render_animation(frames, (80, 24), filename, templates['gjm8'],
+                              palette=palette)
+
+        with open(filename, 'rb') as svg_file:
+            root = etree.parse(svg_file).getroot()
+
+        generated = root.find(f'.//{{{anim.SVG_NS}}}defs/'
+                              f'{{{anim.SVG_NS}}}style[@id="generated-theme"]')
+        self.assertIsNotNone(generated)
+        self.assertIn('.foreground {fill: #abcdef;}', generated.text)
+        self.assertIn('.color1 {fill: #123456;}', generated.text)
+
+        # The theme element must come after user-style so it wins on specificity
+        defs = root.find(f'.//{{{anim.SVG_NS}}}defs')
+        ids = [child.get('id') for child in defs]
+        self.assertLess(ids.index('user-style'), ids.index('generated-theme'))
+
+    def test_render_animation_palette_preserves_template_rules(self):
+        # The riskiest part of theming: user-style holds rules that are not
+        # colours, and those must survive. window_frame_js keeps its player
+        # controls there and progress_bar keeps its bar animation.
+        templates = config.default_templates()
+        frames = [term.TimedFrame(0, 1000, {0: {0: anim.CharacterCell('a')}})]
+
+        expected = {
+            'window_frame_js': ['#play-button', '#pause-button', '#slider_button'],
+            'progress_bar': ['progress-bar-animation', '#progress-bar'],
+        }
+        for name, needles in expected.items():
+            with self.subTest(template=name):
+                _, filename = tempfile.mkstemp(prefix='termtosvg_', suffix='.svg')
+                anim.render_animation(frames, (80, 24), filename, templates[name],
+                                      palette={'foreground': '#abcdef'})
+                with open(filename, 'rb') as svg_file:
+                    root = etree.parse(svg_file).getroot()
+                user_style = root.find(f'.//{{{anim.SVG_NS}}}defs/'
+                                       f'{{{anim.SVG_NS}}}style[@id="user-style"]')
+                self.assertIsNotNone(user_style)
+                for needle in needles:
+                    self.assertIn(needle, user_style.text)
+
+    def test_render_animation_without_palette_adds_no_theme_element(self):
+        templates = config.default_templates()
+        frames = [term.TimedFrame(0, 1000, {0: {0: anim.CharacterCell('a')}})]
+        _, filename = tempfile.mkstemp(prefix='termtosvg_', suffix='.svg')
+        anim.render_animation(frames, (80, 24), filename, templates['gjm8'])
+
+        with open(filename, 'rb') as svg_file:
+            root = etree.parse(svg_file).getroot()
+        self.assertIsNone(root.find(f'.//{{{anim.SVG_NS}}}style[@id="generated-theme"]'))
+
+    def test_themed_output_validates_against_dtd(self):
+        # A theme adds a <style> element, and the SVG 1.1 DTD requires a 'type'
+        # attribute on it. Without that the output parses fine but fails
+        # validation, so assert it here rather than relying on a manual check.
+        templates = config.default_templates()
+        frames = [term.TimedFrame(0, 1000, {0: {0: anim.CharacterCell('a')}})]
+        palette = theme.palette_from_template(templates['dracula'])
+
+        for name in ['gjm8', 'window_frame', 'progress_bar', 'window_frame_js']:
+            with self.subTest(template=name):
+                _, filename = tempfile.mkstemp(prefix='termtosvg_', suffix='.svg')
+                anim.render_animation(frames, (80, 24), filename, templates[name],
+                                      palette=palette)
+                with open(filename) as svg_file:
+                    anim.validate_svg(svg_file)
+
+    def test_render_still_frames_with_palette(self):
+        templates = config.default_templates()
+        frames = [term.TimedFrame(0, 1000, {0: {0: anim.CharacterCell('a')}})]
+        palette = theme.palette_from_template(templates['dracula'])
+
+        directory = tempfile.mkdtemp(prefix='termtosvg_')
+        anim.render_still_frames(frames, (80, 24), directory, templates['gjm8'],
+                                 palette=palette)
+
+        with open(os.path.join(directory, 'termtosvg_00000.svg'), 'rb') as svg_file:
+            root = etree.parse(svg_file).getroot()
+        generated = root.find(f'.//{{{anim.SVG_NS}}}style[@id="generated-theme"]')
+        self.assertIsNotNone(generated)
+        self.assertIn(f'.background {{fill: {palette["background"]};}}', generated.text)
 
     def test__render_still_frames(self):
         def line(s):
