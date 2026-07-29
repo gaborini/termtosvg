@@ -75,6 +75,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: manpages
@@ -83,7 +85,42 @@ jobs:
         with:
           name: distributions
           path: artifacts/
+
+      # Without this the release body is empty: the action does not pick up the
+      # tag annotation. Deriving the notes from CHANGELOG.md keeps them in step
+      # with the changelog instead of being written twice.
+      - name: Build release notes from the changelog
+        run: |
+          set -euo pipefail
+          python - <<'PY' > release-notes.md
+          import os, pathlib, re, sys
+
+          version = os.environ["GITHUB_REF_NAME"]
+          changelog = pathlib.Path("CHANGELOG.md").read_text()
+          section = re.search(
+              rf"^## Version {re.escape(version)}\b.*?\n(.*?)(?=^## Version |\Z)",
+              changelog, re.S | re.M,
+          )
+          if section is None:
+              sys.exit(f"CHANGELOG.md has no '## Version {version}' section")
+
+          print("## Install\n")
+          print("```shell")
+          print("pip install termtosvg-ng")
+          print("```\n")
+          print("The distribution is named `termtosvg-ng`; the installed command and")
+          print("the import package are both still `termtosvg`.\n")
+          print("## Changes\n")
+          print(section.group(1).strip())
+          PY
+          echo "--- generated notes ---"
+          cat release-notes.md
+
       - uses: softprops/action-gh-release@v2
         with:
+          # Left as a draft on purpose, matching the previous pipeline: a human
+          # reviews the notes and assets before the release goes public.
           draft: true
+          name: termtosvg ${{ github.ref_name }}
+          body_path: release-notes.md
           files: artifacts/*
