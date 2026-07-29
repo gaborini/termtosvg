@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags: ['*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build distributions and manual pages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Verify the tag matches the packaged version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          version="$(python -c 'import termtosvg; print(termtosvg.__version__)')"
+          if [ "$tag" != "$version" ]; then
+            echo "Tag '$tag' does not match termtosvg.__version__ '$version'" >&2
+            exit 1
+          fi
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          twine check --strict dist/*
+
+      - name: Render manual pages
+        run: |
+          sudo apt-get update && sudo apt-get install -y pandoc
+          make man
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manpages
+          path: man_*.tar.gz
+
+  pypi:
+    name: Publish to PyPI
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      # Required for PyPI trusted publishing, which replaces the stored API
+      # token the previous Travis pipeline carried in-repo.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  release:
+    name: Attach artifacts to the GitHub release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: manpages
+          path: artifacts/
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: artifacts/
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: artifacts/*

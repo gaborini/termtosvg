@@ -1,21 +1,28 @@
-.PHONY: usage tests build deploy_test deploy_prod html man install
+.PHONY: usage install tests lint build man html deploy_test deploy_prod clean
 
-PIP=pip
-PYTHON=python
+PYTHON=python3
+PIP=$(PYTHON) -m pip
 
 EXAMPLES_DIR=docs/examples
 CASTS_DIR=$(EXAMPLES_DIR)/casts
 
-.DEFAULT: usage
+# Version of the manual page tarball. Derived from the package so a release does
+# not depend on a CI-provided tag variable.
+VERSION=$(shell $(PYTHON) -c 'import termtosvg; print(termtosvg.__version__)')
+
+.DEFAULT_GOAL := usage
 
 usage:
 	@echo "Usage:"
-	@echo "    make build           # Build source distribution archives"
-	@echo "    make deploy_prod     # Upload source distribution archives to pypi.org"
-	@echo "    make deploy_test     # Upload source distribution archives to test.pypi.org"
-	@echo "    make man             # Build manual pages"
-	@echo "    make html            # Build GitHub pages website"
-	@echo "    make tests           # Run unit tests"
+	@echo "    make install         # Install the package in editable mode with dev extras"
+	@echo "    make tests           # Run unit tests with coverage"
+	@echo "    make lint            # Run ruff"
+	@echo "    make build           # Build sdist and wheel into dist/"
+	@echo "    make man             # Build manual pages (requires pandoc)"
+	@echo "    make html            # Render the example gallery under docs/"
+	@echo "    make clean           # Remove build artifacts"
+	@echo "    make deploy_prod     # Upload distributions to pypi.org"
+	@echo "    make deploy_test     # Upload distributions to test.pypi.org"
 
 install:
 	$(PYTHON) --version
@@ -23,18 +30,20 @@ install:
 	$(PIP) freeze
 
 tests:
-	coverage run --branch --source termtosvg -m unittest termtosvg.tests.suite -v
+	coverage run -m unittest termtosvg.tests.suite -v
 	coverage report
-	pylint -j 0 --extension-pkg-whitelist lxml termtosvg/*.py || exit 0
 
-build:
-	rm -rf dist && \
-	$(PYTHON) setup.py sdist bdist_wheel
+lint:
+	ruff check .
+
+build: clean
+	$(PYTHON) -m build
+	$(PYTHON) -m twine check --strict dist/*
 
 man:
 	pandoc man/termtosvg.md -s -t man > man/termtosvg.man.1
 	pandoc man/termtosvg-templates.md -s -t man > man/termtosvg-templates.man.5
-	tar -czf "man_$${TRAVIS_TAG}.tar.gz" man/termtosvg*.man.*
+	tar -czf "man_$(VERSION).tar.gz" man/termtosvg*.man.*
 
 html:
 	cp -r termtosvg/data/templates/ docs/
@@ -50,9 +59,11 @@ html:
 		termtosvg render "$(CASTS_DIR)/awesome.cast" "$(EXAMPLES_DIR)/$$filename" -t "$$template"; \
 	    done
 
+clean:
+	rm -rf build dist *.egg-info
+
 deploy_test:
-	twine upload -r pypitest dist/*
+	$(PYTHON) -m twine upload -r pypitest dist/*
 
 deploy_prod:
-	twine upload -r pypi dist/*
-
+	$(PYTHON) -m twine upload -r pypi dist/*

@@ -66,6 +66,12 @@ termtosvg = ["data/*.dtd", "data/templates/*.svg"]
 line-length = 100
 target-version = "py310"
 
+# `ruff check` is enforced in CI; `ruff format` deliberately is not. Running the
+# formatter over this codebase rewrites ~1800 lines, almost entirely converting
+# single quotes to double quotes, which would bury real changes and destroy
+# `git blame` history for no functional gain. Format new code to match its
+# surroundings instead.
+
 [tool.ruff.lint]
 select = [
     "F",   # pyflakes
