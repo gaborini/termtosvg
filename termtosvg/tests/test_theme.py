@@ -1,6 +1,9 @@
+import json
+import tempfile
 import unittest
 
 from termtosvg import config, theme
+from termtosvg.asciicast import AsciiCastV2Theme
 
 
 class TestTheme(unittest.TestCase):
@@ -45,3 +48,70 @@ class TestTheme(unittest.TestCase):
         self.assertIn('.color7', css)
         self.assertNotIn('.color8', css)
         self.assertNotIn('.foreground', css)
+
+    def test_palette_from_cast_theme(self):
+        cast_theme = AsciiCastV2Theme(
+            fg='#839496', bg='#002b36',
+            palette=':'.join([f'#00000{i}' for i in range(8)]),
+        )
+        palette = theme.palette_from_cast_theme(cast_theme)
+        self.assertEqual(palette['foreground'], '#839496')
+        self.assertEqual(palette['background'], '#002b36')
+        self.assertEqual(palette['color0'], '#000000')
+        self.assertEqual(palette['color7'], '#000007')
+        # An 8-colour theme must not invent the bright half
+        self.assertNotIn('color8', palette)
+
+    def test_palette_from_file(self):
+        data = {'fg': '#ffffff', 'bg': '#000000',
+                'palette': ':'.join(['#111111'] * 8)}
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as handle:
+            json.dump(data, handle)
+            path = handle.name
+        palette = theme.palette_from_file(path)
+        self.assertEqual(palette['foreground'], '#ffffff')
+        self.assertEqual(palette['color3'], '#111111')
+
+        # A whole cast header is accepted too, so a theme can be lifted from one
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as handle:
+            json.dump({'version': 2, 'width': 80, 'height': 24, 'theme': data}, handle)
+            header_path = handle.name
+        self.assertEqual(theme.palette_from_file(header_path)['foreground'], '#ffffff')
+
+    def test_palette_from_file_failures(self):
+        cases = [
+            ('not json', 'nonsense'),
+            ('not an object', '[1, 2, 3]'),
+            ('missing attributes', json.dumps({'fg': '#ffffff'})),
+            ('invalid colour', json.dumps({'fg': 'xxxxxxx', 'bg': '#000000',
+                                           'palette': ':'.join(['#111111'] * 8)})),
+            ('short palette', json.dumps({'fg': '#ffffff', 'bg': '#000000',
+                                          'palette': '#111111'})),
+            ('palette not a string', json.dumps({'fg': '#ffffff', 'bg': '#000000',
+                                                 'palette': 42})),
+        ]
+        for case, content in cases:
+            with self.subTest(case=case):
+                with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as handle:
+                    handle.write(content)
+                    path = handle.name
+                with self.assertRaises(theme.ThemeError):
+                    theme.palette_from_file(path)
+
+        with self.subTest(case='missing file'):
+            with self.assertRaises(theme.ThemeError):
+                theme.palette_from_file('/nonexistent/theme.json')
+
+    def test_resolve_order(self):
+        templates = config.default_templates()
+
+        # 'auto' is a keyword and is passed through for the caller to handle
+        self.assertEqual(theme.resolve('auto', templates), theme.AUTO)
+
+        # A built-in name wins over any same-named file in the working directory
+        self.assertEqual(theme.resolve('dracula', templates),
+                         theme.palette_from_template(templates['dracula']))
+
+        # Anything else is a path
+        with self.assertRaises(theme.ThemeError):
+            theme.resolve('definitely-not-a-template', templates)
