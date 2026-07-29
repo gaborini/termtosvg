@@ -284,6 +284,35 @@ class TestAnim(unittest.TestCase):
             root = etree.parse(svg_file).getroot()
         self.assertIsNone(root.find(f'.//{{{anim.SVG_NS}}}style[@id="generated-theme"]'))
 
+    def test_aixterm_colour_names_are_all_known(self):
+        # pyte 0.8.2 ships BG_AIXTERM[105] = 'bfightmagenta', a typo for
+        # 'brightmagenta'. from_pyte rejects any name it does not know, so a
+        # recording using a bright background crashed the renderer.
+        for mapping in (pyte.graphics.FG_AIXTERM, pyte.graphics.BG_AIXTERM):
+            for code, colour in mapping.items():
+                with self.subTest(code=code):
+                    self.assertIn(colour, anim.NAMED_COLORS)
+
+    def test_bright_background_renders(self):
+        # \033[100m .. \033[107m are the bright backgrounds; 105 is the one that
+        # used to raise ValueError('Invalid background color')
+        for offset in range(8):
+            with self.subTest(code=100 + offset):
+                screen = pyte.Screen(4, 1)
+                stream = pyte.Stream(screen)
+                stream.feed(f'\033[{100 + offset}mX')
+                cell = anim.CharacterCell.from_pyte(screen.buffer[0][0])
+                self.assertEqual(cell.background_color, f'color{8 + offset}')
+
+    def test_bright_foreground_renders(self):
+        for offset in range(8):
+            with self.subTest(code=90 + offset):
+                screen = pyte.Screen(4, 1)
+                stream = pyte.Stream(screen)
+                stream.feed(f'\033[{90 + offset}mX')
+                cell = anim.CharacterCell.from_pyte(screen.buffer[0][0])
+                self.assertEqual(cell.color, f'color{8 + offset}')
+
     def test_themed_output_validates_against_dtd(self):
         # A theme adds a <style> element, and the SVG 1.1 DTD requires a 'type'
         # attribute on it. Without that the output parses fine but fails
