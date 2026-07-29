@@ -118,8 +118,8 @@ jobs:
           print("```shell")
           print("pip install termtosvg-ng")
           print("```\n")
-          print("The distribution is named `termtosvg-ng`; the installed command and")
-          print("the import package are both still `termtosvg`.\n")
+          print("Installs two interchangeable commands, `termtosvg` and")
+          print("`termtosvg-ng`. The import package is `termtosvg`.\n")
           print("## Changes\n")
           print(section.group(1).strip())
           PY
