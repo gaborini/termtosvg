@@ -1,4 +1,22 @@
 # Changelog
+## Version 1.4.0 (2026-07-29)
+
+* **Add `--theme` to choose colours independently of the template.** Previously
+  the palette and the terminal chrome were welded together in a template file,
+  which is why sixteen templates ship with substantial overlap. `--theme` accepts
+  the name of a built-in template to borrow its palette, a path to a JSON palette
+  file, or `auto` to use the palette stored in the recording.
+* Honour the `theme` attribute of asciicast files when `--theme auto` is given.
+  The attribute was previously parsed and validated but never used for rendering,
+  so asciinema recordings had their colours silently discarded.
+* Themes are written to a new `<style id="generated-theme">` element appended
+  after the template's own `user-style`, rather than replacing it. Two bundled
+  templates keep non-colour rules there — `progress_bar` its bar animation and
+  `window_frame_js` its player controls — and those keep working.
+* Rendering without `--theme` is unchanged: all 267 reference artifacts remain
+  byte-identical.
+
+
 ## Version 1.3.0 (2026-07-29)
 
 * **Add a `termtosvg-ng` command alongside `termtosvg`.** Both names run the same

@@ -22,14 +22,16 @@ DEFAULT_LOOP_DELAY = 1000
 # installs two commands, `termtosvg` and the `termtosvg-ng` alias, and help text
 # advertising the wrong one would be actively misleading.
 USAGE = """%(prog)s [output_path] [-c COMMAND] [-D DELAY] [-g GEOMETRY]
-                 [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [-h]
+                 [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE]
+                 [--theme THEME] [-h]
 
 Record a terminal session and render an SVG animation on the fly
 """
 EPILOG = "See also '%(prog)s record --help' and '%(prog)s render --help'"
 RECORD_USAGE = "%(prog)s record [output_path] [-c COMMAND] [-g GEOMETRY] [-h]"
 RENDER_USAGE = """%(prog)s render input_file [output_path] [-D DELAY]
-                 [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [-h]"""
+                 [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE]
+                 [--theme THEME] [-h]"""
 
 CANONICAL_PROG = 'termtosvg'
 

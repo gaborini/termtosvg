@@ -3,11 +3,11 @@
 % July 2026
 
 ## SYNOPSIS
-**termtosvg** [output_path] [-c COMMAND] [-D DELAY] [-g GEOMETRY] [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [--help]
+**termtosvg** [output_path] [-c COMMAND] [-D DELAY] [-g GEOMETRY] [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [--theme THEME] [--help]
 
 **termtosvg record** [output_path] [-c COMMAND] [-g GEOMETRY] [-h]
 
-**termtosvg render** *input_file* [output_path] [-D DELAY] [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [-h]
+**termtosvg render** *input_file* [output_path] [-D DELAY] [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [--theme THEME] [-h]
 
 ### DESCRIPTION
 termtosvg makes recordings of terminal sessions in animated SVG format.
@@ -73,6 +73,18 @@ gjm8_single_loop, gjm8, powershell, progress_bar, putty, solarized_dark,
 solarized_light, terminal_app, ubuntu, window_frame_js,
 window_frame_powershell, window_frame, xterm) or a path to a valid template.
 
+##### --theme=THEME
+Override the color palette supplied by the template, leaving the rest of the
+template alone. THEME may be `auto` to use the palette recorded in the cast file,
+the name of one of the default templates to borrow its palette, or the path to a
+JSON file with `fg`, `bg` and `palette` attributes in the same form as the
+asciicast theme object. Palettes of 8 or 16 colors are accepted; with 8, colors 8
+to 15 are left as the template defined them. Recordings made by `termtosvg record`
+do not store a theme, so `auto` warns and keeps the template's colors. THEME is
+resolved as `auto` first, then as a default template name, then as a path, so a
+file named like a default template must be given with a path separator such as
+`./dracula`.
+
 ##### -s, --still-frames
 Output still frames in SVG format instead of an animated SVG. If this option is specified,
 output_path refers to the destination directory for the frames.
@@ -137,4 +149,14 @@ termtosvg -D 2000
 Render still frames instead of an animated SVG using a specific template
 ```
 termtosvg -s -t gjm8_play
+```
+
+Render with a window frame but Dracula colors
+```
+termtosvg render recording.cast animation.svg -t window_frame --theme dracula
+```
+
+Render using the palette stored in an asciinema recording
+```
+termtosvg render recording.cast animation.svg --theme auto
 ```
