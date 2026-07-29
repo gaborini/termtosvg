@@ -10,6 +10,8 @@ import pyte.screens
 from lxml import etree
 from wcwidth import wcswidth
 
+from termtosvg.theme import theme_css
+
 # Ugliest hack: Replace the first 16 colors rgb values by their names so that
 # termtosvg can distinguish FG_BG_256[0] (which defaults to black #000000 but
 # can be styled with themes) from FG_BG_256[16] (which is also black #000000
@@ -140,8 +142,9 @@ class ConsecutiveWithSameAttributes:
 
 
 def render_animation(frames, geometry, filename, template,
-                     cell_width: int = CELL_WIDTH, cell_height: int = CELL_HEIGHT) -> None:
-    root = _render_preparation(geometry, template, cell_width, cell_height)
+                     cell_width: int = CELL_WIDTH, cell_height: int = CELL_HEIGHT,
+                     palette=None) -> None:
+    root = _render_preparation(geometry, template, cell_width, cell_height, palette)
     _, screen_height = geometry
     root = _render_animation(screen_height, frames, root, cell_width, cell_height)
 
@@ -150,8 +153,9 @@ def render_animation(frames, geometry, filename, template,
 
 
 def render_still_frames(frames, geometry, directory, template,
-                        cell_width: int = CELL_WIDTH, cell_height: int = CELL_HEIGHT) -> None:
-    root = _render_preparation(geometry, template, cell_width, cell_height)
+                        cell_width: int = CELL_WIDTH, cell_height: int = CELL_HEIGHT,
+                        palette=None) -> None:
+    root = _render_preparation(geometry, template, cell_width, cell_height, palette)
 
     frame_generator = _render_still_frames(frames, root, cell_width, cell_height)
     for frame_count, frame_root in enumerate(frame_generator):
@@ -168,9 +172,33 @@ def _find_screen(root):
     return svg_screen_tag
 
 
-def _render_preparation(geometry, template, cell_width, cell_height):
+def _add_theme(root, palette):
+    """Append a style element that overrides the template's palette
+
+    Appended to "defs" rather than replacing the template's "user-style"
+    element: template authors keep rules there that have nothing to do with
+    colour, such as the progress bar animation and the JavaScript player
+    controls, and those must survive. Being last in document order, these rules
+    win over the template's at equal specificity, while the template's
+    higher-specificity ID selectors are untouched.
+    """
+    defs = root.find(f'.//{{{SVG_NS}}}defs')
+    if defs is None:
+        raise TemplateError('Missing "defs" element in template')
+
+    # 'type' is required by the SVG 1.1 DTD, which validate_svg checks against,
+    # and is what the templates' own style elements carry.
+    style = etree.SubElement(defs, 'style',
+                             attrib={'type': 'text/css', 'id': 'generated-theme'})
+    style.text = etree.CDATA(f'\n{theme_css(palette)}\n        ')
+    return root
+
+
+def _render_preparation(geometry, template, cell_width, cell_height, palette=None):
     # Read header record and add the corresponding information to the SVG
     root = resize_template(template, geometry, cell_width, cell_height)
+    if palette:
+        _add_theme(root, palette)
     svg_screen_tag = _find_screen(root)
 
     for child in list(svg_screen_tag):

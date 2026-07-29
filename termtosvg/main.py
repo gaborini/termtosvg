@@ -1,6 +1,7 @@
 """Command line interface of termtosvg"""
 
 import argparse
+import itertools
 import logging
 import os
 import shlex
@@ -9,6 +10,7 @@ import tempfile
 
 import termtosvg.anim
 import termtosvg.config
+import termtosvg.theme
 from termtosvg import __version__
 
 logger = logging.getLogger('termtosvg')
@@ -20,14 +22,16 @@ DEFAULT_LOOP_DELAY = 1000
 # installs two commands, `termtosvg` and the `termtosvg-ng` alias, and help text
 # advertising the wrong one would be actively misleading.
 USAGE = """%(prog)s [output_path] [-c COMMAND] [-D DELAY] [-g GEOMETRY]
-                 [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [-h]
+                 [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE]
+                 [--theme THEME] [-h]
 
 Record a terminal session and render an SVG animation on the fly
 """
 EPILOG = "See also '%(prog)s record --help' and '%(prog)s render --help'"
 RECORD_USAGE = "%(prog)s record [output_path] [-c COMMAND] [-g GEOMETRY] [-h]"
 RENDER_USAGE = """%(prog)s render input_file [output_path] [-D DELAY]
-                 [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [-h]"""
+                 [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE]
+                 [--theme THEME] [-h]"""
 
 CANONICAL_PROG = 'termtosvg'
 
@@ -107,6 +111,17 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
         default=default_template,
         metavar='TEMPLATE'
     )
+    theme_parser = argparse.ArgumentParser(add_help=False)
+    theme_parser.add_argument(
+        '--theme',
+        help=('override the color palette of the template. THEME may be "auto" '
+              'to use the palette recorded in the cast file, the name of one of '
+              f'the default templates ({", ".join(templates)}), or the path to a '
+              'JSON file with "fg", "bg" and "palette" attributes.'),
+        type=lambda name: termtosvg.theme.resolve(name, templates),
+        default=None,
+        metavar='THEME'
+    )
     geometry_parser = argparse.ArgumentParser(add_help=False)
     geometry_parser.add_argument(
         '-g', '--screen-geometry',
@@ -154,7 +169,7 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
     parser = argparse.ArgumentParser(
         prog=prog,
         parents=[command_parser, loop_delay_parser, geometry_parser, min_duration_parser,
-                 max_duration_parser, still_frames_parser, template_parser],
+                 max_duration_parser, still_frames_parser, template_parser, theme_parser],
         usage=USAGE,
         epilog=EPILOG
     )
@@ -189,7 +204,8 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
                 prog=prog,
                 description='render an asciicast recording as an SVG animation',
                 parents=[loop_delay_parser,  min_duration_parser,
-                         max_duration_parser, still_frames_parser, template_parser],
+                         max_duration_parser, still_frames_parser, template_parser,
+                         theme_parser],
                 usage=RENDER_USAGE
             )
             parser.add_argument(
@@ -231,34 +247,66 @@ def record_subcommand(process_args, geometry, input_fileno, output_fileno,
     logger.info('Recording ended, cast file is %s', cast_filename)
 
 
+def _resolve_auto_palette(header):
+    """Return the palette recorded in a cast header, or None with a warning
+
+    Falling back is deliberate: refusing to render would be hostile in batch use,
+    while falling back silently would hide that --theme auto did nothing.
+    """
+    if header.theme is None:
+        logger.warning('--theme auto: this recording carries no theme, '
+                       'keeping the colors of the template')
+        return None
+    return termtosvg.theme.palette_from_cast_theme(header.theme)
+
+
+def _apply_auto_palette(records, palette):
+    """Resolve a palette of AUTO against the header of a record stream
+
+    `timed_frames` consumes the header and does not hand it back, so the header
+    is read here and chained onto the front of the stream again rather than
+    changing that function's public return shape.
+    """
+    if palette is not termtosvg.theme.AUTO:
+        return records, palette
+
+    records = iter(records)
+    header = next(records)
+    return itertools.chain([header], records), _resolve_auto_palette(header)
+
+
 def render_subcommand(still, template, cast_filename, output_path,
-                      min_frame_duration, max_frame_duration, loop_delay):
+                      min_frame_duration, max_frame_duration, loop_delay,
+                      palette=None):
     """Render the animation from an asciicast recording"""
     from termtosvg.asciicast import read_records
     from termtosvg.term import timed_frames
 
     logger.info('Rendering started')
     asciicast_records = read_records(cast_filename)
+    asciicast_records, palette = _apply_auto_palette(asciicast_records, palette)
     geometry, frames = timed_frames(asciicast_records, min_frame_duration,
                                     max_frame_duration, loop_delay)
     if still:
         termtosvg.anim.render_still_frames(frames=frames,
                                            geometry=geometry,
                                            directory=output_path,
-                                           template=template)
+                                           template=template,
+                                           palette=palette)
         logger.info('Rendering ended, SVG frames are located at %s', output_path)
     else:
         termtosvg.anim.render_animation(frames=frames,
                                         geometry=geometry,
                                         filename=output_path,
-                                        template=template)
+                                        template=template,
+                                        palette=palette)
         logger.info('Rendering ended, SVG animation is %s', output_path)
 
 
 def record_render_subcommand(process_args, still, template, geometry,
                              input_fileno, output_fileno, output_path,
                              min_frame_duration, max_frame_duration,
-                             loop_delay):
+                             loop_delay, palette=None):
     """Record and render the animation on the fly"""
     from termtosvg.term import TerminalMode, get_terminal_size, record, timed_frames
 
@@ -273,16 +321,18 @@ def record_render_subcommand(process_args, still, template, geometry,
         # do not want two processes writing to the same terminal.
         asciicast_records = record(process_args, columns, lines, input_fileno,
                                    output_fileno)
+        # `record` never stores a theme, so --theme auto warns and falls back here
+        asciicast_records, palette = _apply_auto_palette(asciicast_records, palette)
         geometry, frames = timed_frames(asciicast_records, min_frame_duration,
                                         max_frame_duration, loop_delay)
 
         if still:
             termtosvg.anim.render_still_frames(frames, geometry, output_path,
-                                               template)
+                                               template, palette=palette)
             end_msg = 'Rendering ended, SVG frames are located at %s'
         else:
             termtosvg.anim.render_animation(frames, geometry, output_path,
-                                            template)
+                                            template, palette=palette)
             end_msg = 'Rendering ended, SVG animation is %s'
 
     logger.info(end_msg, output_path)
@@ -341,7 +391,7 @@ def main(args=None, input_fileno=None, output_fileno=None):
         output_path = _resolve_output_path(args.output_path, args.still_frames)
         render_subcommand(args.still_frames, args.template, args.input_file,
                           output_path, args.min_frame_duration,
-                          args.max_frame_duration, args.loop_delay)
+                          args.max_frame_duration, args.loop_delay, args.theme)
     else:
         output_path = _resolve_output_path(args.output_path, args.still_frames)
         process_args = shlex.split(args.command)
@@ -350,7 +400,7 @@ def main(args=None, input_fileno=None, output_fileno=None):
                                  output_fileno, output_path,
                                  args.min_frame_duration,
                                  args.max_frame_duration,
-                                 args.loop_delay)
+                                 args.loop_delay, args.theme)
 
     for handler in logger.handlers:
         handler.close()

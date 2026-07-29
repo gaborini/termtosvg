@@ -161,6 +161,7 @@ recording, so it has no `-g`:
 | `-c, --command COMMAND` | `$SHELL`, else `sh` | ✅ | ✅ | — | Program to record, with arguments: `-c 'ipython --pprint'`. |
 | `-g, --screen-geometry COLSxROWS` | your terminal, else `80x24` | ✅ | ✅ | — | Screen size to record at, e.g. `82x19`. |
 | `-t, --template TEMPLATE` | `powershell` | ✅ | — | ✅ | Built-in name (see below) or a path to your own template. |
+| `--theme THEME` | the template's own palette | ✅ | — | ✅ | Override just the colours: `auto` to use the palette stored in the recording, a built-in name, or a path to a JSON palette. |
 | `-m, --min-frame-duration MS` | `1` | ✅ | — | ✅ | Merge frames shorter than this. Raise it to shrink output from commands that redraw constantly. |
 | `-M, --max-frame-duration MS` | none¹ | ✅ | — | ✅ | Clamp long pauses, so thinking time does not stall the animation. |
 | `-D, --loop-delay MS` | `1000` | ✅ | — | ✅ | Pause before the animation loops. |
@@ -197,6 +198,46 @@ animation is driven. Pass one by name with `-t`:
 | `window_frame_powershell` | Window frame, PowerShell palette | CSS |
 | `window_frame_js` | Window frame with play/pause buttons | **JavaScript** |
 
+### Colours separately from chrome
+
+A template bundles two independent things: the colour palette and the terminal
+chrome (window frame, play button, progress bar). `--theme` lets you vary the
+colours without authoring a template, so any palette combines with any chrome:
+
+```shell
+termtosvg render demo.cast out.svg -t window_frame --theme dracula
+```
+
+`--theme` accepts:
+
+| Value | Meaning |
+|---|---|
+| a built-in name | the palette from that template, e.g. `--theme solarized_light` |
+| `auto` | the palette stored in the recording's own header |
+| a path | a JSON file with `fg`, `bg` and `palette` attributes |
+
+`auto` is useful for recordings made with asciinema, which store the terminal's
+palette in the cast file. Recordings made by `termtosvg record` do not store one,
+so `auto` warns and keeps the template's colours.
+
+A palette file uses the same shape as the asciicast `theme` object, so it can be
+copied straight out of a `.cast` header:
+
+```json
+{
+  "fg": "#839496",
+  "bg": "#002b36",
+  "palette": "#073642:#dc322f:#859900:#b58900:#268bd2:#d33682:#2aa198:#eee8d5"
+}
+```
+
+Eight or sixteen colours are both accepted. With eight, the bright half is left
+as the template defined it rather than being guessed at.
+
+Names are resolved in a fixed order — `auto`, then a built-in name, then a path —
+so an argument never means something different depending on your working
+directory. To load a file called `dracula`, write `./dracula`.
+
 ### Embedding, and one caveat worth knowing
 
 Fifteen of the sixteen templates animate through pure CSS, so they play when
@@ -230,6 +271,12 @@ termtosvg -m 17 -M 2000 demo.svg
 
 # Re-theme an existing recording — no need to perform it again
 termtosvg render demo.cast dracula.svg -t dracula
+
+# Keep the chrome, swap only the colours
+termtosvg render demo.cast out.svg -t window_frame --theme solarized_light
+
+# Use the palette the recording was made with (asciinema casts store one)
+termtosvg render downloaded.cast out.svg --theme auto
 
 # Render someone else's asciinema recording
 termtosvg render downloaded.cast out.svg
