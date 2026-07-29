@@ -15,15 +15,34 @@ logger = logging.getLogger('termtosvg')
 
 DEFAULT_LOOP_DELAY = 1000
 
-USAGE = """termtosvg [output_path] [-c COMMAND] [-D DELAY] [-g GEOMETRY]
+# argparse substitutes %(prog)s in both `usage` and `epilog`, so these adapt to
+# the name the program was invoked under. That matters because the package
+# installs two commands, `termtosvg` and the `termtosvg-ng` alias, and help text
+# advertising the wrong one would be actively misleading.
+USAGE = """%(prog)s [output_path] [-c COMMAND] [-D DELAY] [-g GEOMETRY]
                  [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [-h]
 
 Record a terminal session and render an SVG animation on the fly
 """
-EPILOG = "See also 'termtosvg record --help' and 'termtosvg render --help'"
-RECORD_USAGE = "termtosvg record [output_path] [-c COMMAND] [-g GEOMETRY] [-h]"
-RENDER_USAGE = """termtosvg render input_file [output_path] [-D DELAY]
+EPILOG = "See also '%(prog)s record --help' and '%(prog)s render --help'"
+RECORD_USAGE = "%(prog)s record [output_path] [-c COMMAND] [-g GEOMETRY] [-h]"
+RENDER_USAGE = """%(prog)s render input_file [output_path] [-D DELAY]
                  [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [-h]"""
+
+CANONICAL_PROG = 'termtosvg'
+
+
+def prog_name(argv0: str) -> str:
+    """Return the program name to display in usage and help text
+
+    Derived from how the program was actually invoked so that the `termtosvg-ng`
+    alias does not describe itself as `termtosvg`. Falls back to the canonical
+    name for `python -m termtosvg`, where argv[0] is the path of __main__.py.
+    """
+    name = os.path.basename(argv0 or '')
+    if not name or name.endswith('.py'):
+        return CANONICAL_PROG
+    return name
 
 
 def integral_duration_validation(duration: str) -> int:
@@ -36,7 +55,7 @@ def integral_duration_validation(duration: str) -> int:
 
 
 def parse(args, templates, default_template, default_geometry, default_min_dur,
-          default_max_dur, default_cmd, default_loop_delay):
+          default_max_dur, default_cmd, default_loop_delay, prog=CANONICAL_PROG):
     """Parse command line arguments
 
     :param args: Arguments to parse
@@ -50,6 +69,7 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
     :param default_cmd: Default program (with argument list) recorded
     :param default_loop_delay: Duration of the pause between two consecutive
     loops of the animation in milliseconds
+    :param prog: Name to display in usage and help text
     :return: Tuple made of the subcommand called (None, 'render' or 'record')
     and all parsed
     arguments
@@ -132,7 +152,7 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
     )
 
     parser = argparse.ArgumentParser(
-        prog='termtosvg',
+        prog=prog,
         parents=[command_parser, loop_delay_parser, geometry_parser, min_duration_parser,
                  max_duration_parser, still_frames_parser, template_parser],
         usage=USAGE,
@@ -150,6 +170,7 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
     if args:
         if args[0] == 'record':
             parser = argparse.ArgumentParser(
+                prog=prog,
                 description='record the session to a file in asciicast v2 format',
                 parents=[command_parser, geometry_parser],
                 usage=RECORD_USAGE
@@ -165,6 +186,7 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
 
         if args[0] == 'render':
             parser = argparse.ArgumentParser(
+                prog=prog,
                 description='render an asciicast recording as an SVG animation',
                 parents=[loop_delay_parser,  min_duration_parser,
                          max_duration_parser, still_frames_parser, template_parser],
@@ -303,7 +325,8 @@ def main(args=None, input_fileno=None, output_fileno=None):
     default_template = 'powershell'
     default_cmd = os.environ.get('SHELL', 'sh')
     command, args = parse(args[1:], templates, default_template, None, 1,
-                          None, default_cmd, DEFAULT_LOOP_DELAY)
+                          None, default_cmd, DEFAULT_LOOP_DELAY,
+                          prog_name(args[0] if args else CANONICAL_PROG))
 
     if command == 'record':
         if args.output_path is None:

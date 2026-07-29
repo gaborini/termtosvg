@@ -42,18 +42,24 @@ source .venv/bin/activate
 pip install termtosvg-ng
 ```
 
-Then run it as either `termtosvg` or `python3 -m termtosvg`.
+Three equivalent ways to run it — use whichever reads best to you:
+
+```shell
+termtosvg          # the historical command name
+termtosvg-ng       # matches the name you installed
+python3 -m termtosvg
+```
 
 > [!IMPORTANT]
-> **The install name and the command name differ, on purpose.** You install
-> `termtosvg-ng` but you run `termtosvg`; the import package is `termtosvg` too.
+> **Why the install name carries `-ng`.** The plain `termtosvg` name on PyPI
+> belongs to the original author and last shipped **1.1.0** in January 2020. That
+> release predates the removal of `pkg_resources` from setuptools, so on Python
+> 3.12 and later it fails at import with `ModuleNotFoundError: No module named
+> 'pkg_resources'` — every command, `--version` included, dies immediately.
+> `termtosvg-ng` is the same tool with that fixed.
 >
-> The plain `termtosvg` name on PyPI belongs to the original author and last
-> shipped **1.1.0** in January 2020. That release predates the removal of
-> `pkg_resources` from setuptools, so on Python 3.12 and later it fails at import
-> with `ModuleNotFoundError: No module named 'pkg_resources'` — every command,
-> `--version` included, dies immediately. `termtosvg-ng` is the same tool with
-> that fixed.
+> The `termtosvg` command is kept so that existing scripts, tutorials and distro
+> packaging continue to work unchanged. The import package is `termtosvg` as well.
 
 <details>
 <summary><b>Installing straight from source</b></summary>

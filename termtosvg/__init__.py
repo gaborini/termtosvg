@@ -5,6 +5,6 @@
 # `--version` flag. A plain literal is used rather than importlib.metadata so
 # that starting termtosvg costs no metadata lookup — see the note in config.py
 # about guarding startup time.
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 __all__ = ["__version__"]

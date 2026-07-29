@@ -187,6 +187,21 @@ class TestMain(unittest.TestCase):
             args = ['termtosvg', 'render', cast_filename_v1, svg_filename]
             TestMain.run_main(args, [])
 
+    def test_prog_name(self):
+        # Invoked as one of the installed commands: report that name, so the
+        # termtosvg-ng alias does not advertise itself as termtosvg
+        self.assertEqual(termtosvg.main.prog_name('termtosvg'), 'termtosvg')
+        self.assertEqual(termtosvg.main.prog_name('termtosvg-ng'), 'termtosvg-ng')
+        self.assertEqual(termtosvg.main.prog_name('/usr/local/bin/termtosvg-ng'),
+                         'termtosvg-ng')
+
+        # Run through `python -m termtosvg`, where argv[0] is the path of
+        # __main__.py, or with no argv[0] at all: fall back to the canonical name
+        # rather than printing help for a command called __main__.py
+        for argv0 in ['/x/termtosvg/__main__.py', '__main__.py', '', None]:
+            with self.subTest(argv0=argv0):
+                self.assertEqual(termtosvg.main.prog_name(argv0), 'termtosvg')
+
     def test_integral_duration(self):
         test_cases: ClassVar[list] = [
             '100',

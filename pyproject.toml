@@ -3,11 +3,10 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# Distribution name only. The import package and the installed command are both
-# still `termtosvg` (see [project.scripts] and [tool.setuptools]); nothing in the
-# code looks the distribution name up at runtime. The plain `termtosvg` name on
-# PyPI belongs to the original author and serves 1.1.0, which cannot start on
-# Python 3.12+.
+# Distribution name. The import package stays `termtosvg` (see [tool.setuptools]),
+# and nothing in the code looks the distribution name up at runtime. The plain
+# `termtosvg` name on PyPI belongs to the original author and serves 1.1.0, which
+# cannot start on Python 3.12+.
 name = "termtosvg-ng"
 dynamic = ["version"]
 description = "Record terminal sessions as lightweight SVG animations"
@@ -50,7 +49,12 @@ dev = [
 ]
 
 [project.scripts]
+# Two names for one entry point. `termtosvg` is the historical command and keeps
+# existing scripts, tutorials and distro packaging working; `termtosvg-ng` matches
+# the name the package is installed under, so `pip install termtosvg-ng` followed
+# by `termtosvg-ng` reads consistently. Help text adapts to whichever was used.
 termtosvg = "termtosvg.main:main"
+termtosvg-ng = "termtosvg.main:main"
 
 [project.urls]
 # These must resolve to the code this distribution actually ships, otherwise a

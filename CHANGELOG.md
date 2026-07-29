@@ -1,4 +1,15 @@
 # Changelog
+## Version 1.3.0 (2026-07-29)
+
+* **Add a `termtosvg-ng` command alongside `termtosvg`.** Both names run the same
+  program. The package installs as `termtosvg-ng`, so being able to invoke it by
+  that name removes the mismatch; `termtosvg` is kept because renaming it would
+  break every existing script, tutorial and distro package that calls it.
+* Usage and help text now reflect the name the program was invoked under, instead
+  of always claiming to be `termtosvg`. Output for `termtosvg` itself is
+  unchanged, and `python -m termtosvg` still reports the canonical name.
+
+
 ## Version 1.2.0 (2026-07-29)
 
 Compatibility and maintenance release. The command line interface, the template
