@@ -10,6 +10,7 @@ from termtosvg.tests.test_asciicast import TestAsciicast
 from termtosvg.tests.test_config import TestConf
 from termtosvg.tests.test_main import TestMain
 from termtosvg.tests.test_term import TestTerm
+from termtosvg.tests.test_theme import TestTheme
 
 __all__ = [
     'TestAnim',
@@ -17,4 +18,5 @@ __all__ = [
     'TestConf',
     'TestMain',
     'TestTerm',
+    'TestTheme',
 ]
